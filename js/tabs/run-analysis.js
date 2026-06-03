@@ -156,6 +156,121 @@ function createChart(canvasId, config) {
     config.options.responsive = true;
     config.options.maintainAspectRatio = false;
     charts[canvasId] = new Chart(canvas, config);
+    return charts[canvasId];
+}
+
+function isDatasetVisible(chart, datasetIndex) {
+    const meta = chart.getDatasetMeta(datasetIndex);
+    const dataset = chart.data.datasets[datasetIndex];
+    if (typeof chart.isDatasetVisible === 'function') {
+        return chart.isDatasetVisible(datasetIndex);
+    }
+    return !(meta.hidden === null ? dataset.hidden : meta.hidden);
+}
+
+function toggleDatasetVisibility(chart, datasetIndex) {
+    const meta = chart.getDatasetMeta(datasetIndex);
+    meta.hidden = isDatasetVisible(chart, datasetIndex);
+    chart.update();
+}
+
+function getRollingTrendLegendPriority(label) {
+    if (label.startsWith('Rolling mean (')) return 0;
+    if (label === 'Weekly distance (km)') return 1;
+    if (label === 'Rolling mean pace (min/km)') return 2;
+    return 99;
+}
+
+function getLegendColorValue(value, fallback) {
+    if (Array.isArray(value)) return value[0] || fallback;
+    return value || fallback;
+}
+
+function syncChartHtmlLegendOverlay(chart, canvasId) {
+    const canvas = document.getElementById(canvasId);
+    const container = canvas?.closest('.chart-container');
+    if (!canvas || !container || !chart) return;
+
+    const canvasRect = canvas.getBoundingClientRect();
+    if (canvasRect.width === 0 || canvasRect.height === 0) return;
+
+    container.style.position = 'relative';
+
+    let overlay = container.querySelector(`.chart-html-legend-overlay[data-chart-legend-for="${canvasId}"]`);
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'chart-html-legend-overlay';
+        overlay.dataset.chartLegendFor = canvasId;
+        container.appendChild(overlay);
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    overlay.style.left = `${canvasRect.left - containerRect.left}px`;
+    overlay.style.top = `${canvasRect.bottom - containerRect.top - 28}px`;
+    overlay.style.width = `${canvasRect.width}px`;
+    overlay.style.height = '24px';
+
+    const legendItems = chart.data.datasets
+        .map((dataset, datasetIndex) => ({ dataset, datasetIndex }))
+        .sort((a, b) => getRollingTrendLegendPriority(a.dataset.label) - getRollingTrendLegendPriority(b.dataset.label));
+
+    const legendSignature = legendItems
+        .map(({ dataset, datasetIndex }) => {
+            const borderColor = getLegendColorValue(dataset.borderColor, '#777');
+            const backgroundColor = getLegendColorValue(dataset.backgroundColor, borderColor);
+            return [datasetIndex, dataset.label, borderColor, backgroundColor].join(':');
+        })
+        .join('|');
+
+    if (overlay.dataset.legendSignature !== legendSignature) {
+        overlay.innerHTML = '';
+        overlay.dataset.legendSignature = legendSignature;
+
+        legendItems.forEach(({ dataset, datasetIndex }) => {
+            const borderColor = getLegendColorValue(dataset.borderColor, '#777');
+            const backgroundColor = getLegendColorValue(dataset.backgroundColor, borderColor);
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'chart-html-legend-overlay__item';
+            button.dataset.datasetIndex = String(datasetIndex);
+
+            const swatch = document.createElement('span');
+            swatch.className = 'chart-html-legend-overlay__swatch';
+            swatch.style.backgroundColor = backgroundColor;
+            swatch.style.borderColor = borderColor;
+
+            const label = document.createElement('span');
+            label.textContent = dataset.label;
+
+            button.append(swatch, label);
+            button.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                const currentChart = Chart.getChart(canvas) || chart;
+                toggleDatasetVisibility(currentChart, datasetIndex);
+            });
+
+            overlay.appendChild(button);
+        });
+    }
+
+    legendItems.forEach(({ datasetIndex }) => {
+        const button = overlay.querySelector(`[data-dataset-index="${datasetIndex}"]`);
+        if (!button) return;
+        const visible = isDatasetVisible(chart, datasetIndex);
+        button.classList.toggle('is-hidden', !visible);
+        button.setAttribute('aria-pressed', visible ? 'true' : 'false');
+    });
+}
+
+function createHtmlLegendOverlayPlugin(canvasId) {
+    return {
+        id: `${canvasId}-html-legend-overlay`,
+        afterDraw(chart) {
+            syncChartHtmlLegendOverlay(chart, canvasId);
+        }
+    };
 }
 
 
@@ -854,6 +969,7 @@ export function renderRollingMeanDistanceChart(runs, rollingWindowWeeks = 26) {
                     label: 'Weekly distance (km)',
                     data: weeklyKm,
                     type: 'bar',
+                    yAxisID: 'y',
                     backgroundColor: 'rgba(252, 82, 0, 0.20)',
                     borderColor: 'rgba(252, 82, 0, 0.35)',
                     borderWidth: 1,
@@ -864,6 +980,7 @@ export function renderRollingMeanDistanceChart(runs, rollingWindowWeeks = 26) {
                     label: `Rolling mean (${windowLabel})`,
                     data: rolling,
                     type: 'line',
+                    yAxisID: 'y',
                     borderColor: '#FC5200',
                     backgroundColor: 'rgba(252, 82, 0, 0.18)',
                     pointRadius: 0,
@@ -875,6 +992,7 @@ export function renderRollingMeanDistanceChart(runs, rollingWindowWeeks = 26) {
                     label: 'Rolling mean pace (min/km)',
                     data: rollingPace,
                     type: 'line',
+                    yAxisID: 'yPace',
                     borderColor: '#1976d2',
                     backgroundColor: 'rgba(25,118,210,0.18)',
                     pointRadius: 0,
@@ -885,27 +1003,26 @@ export function renderRollingMeanDistanceChart(runs, rollingWindowWeeks = 26) {
                 }
             ]
         },
+        plugins: [createHtmlLegendOverlayPlugin('rolling-mean-distance-chart')],
         options: {
+            layout: {
+                padding: { bottom: 28 }
+            },
             plugins: {
                 legend: {
-                    position: 'bottom',
-                    labels: {
-                        boxWidth: 12,
-                        padding: 15,
-                        font: { size: 11 }
-                    },
-                    onClick: function (event, legendItem, legend) {
-                        const datasetIndex = legendItem.datasetIndex;
-                        const chart = legend.chart;
-                        const meta = chart.getDatasetMeta(datasetIndex);
-                        meta.hidden = !meta.hidden;
-                        chart.update();
-                    }
+                    display: false
                 }
             },
             scales: {
                 x: { title: { display: true } },
-                y: { title: { display: true, text: 'Distance (km)' } }
+                y: { title: { display: true, text: 'Distance (km)' } },
+                yPace: {
+                    display: 'auto',
+                    position: 'right',
+                    reverse: true,
+                    title: { display: true, text: 'Pace (min/km)' },
+                    grid: { drawOnChartArea: false }
+                }
             }
         }
     });
