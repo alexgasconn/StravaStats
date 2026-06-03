@@ -309,6 +309,69 @@ main {
     cursor: pointer;
 }
 
+.chart-html-legend-overlay {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.chart-html-legend-overlay__item {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 22px;
+    padding: 0 0.1rem;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none;
+    color: #666;
+    font: inherit;
+    font-weight: 400;
+    font-size: 11px;
+    line-height: 1.2;
+    pointer-events: auto;
+    cursor: pointer;
+    transform: none;
+    transition: none;
+}
+
+.chart-html-legend-overlay__item:hover,
+.chart-html-legend-overlay__item:active,
+.chart-html-legend-overlay__item:focus {
+    background: transparent !important;
+    box-shadow: none;
+    color: #666;
+    transform: none;
+}
+
+.chart-html-legend-overlay__item.is-hidden {
+    color: #999;
+    text-decoration: line-through;
+    opacity: 0.58;
+}
+
+.chart-html-legend-overlay__swatch {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+    border: 2px solid currentColor;
+    border-radius: 3px;
+}
+
+.chart-html-legend-overlay__item:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
 /* LAYOUT GRIDS (used in run, bike, swim, athlete tabs) */
 .summary-grid {
     display: grid;
