@@ -2,6 +2,7 @@
 import '../shared/utils/speed-insights.js';
 import { redirectToStrava, logout, handleAuth, loginWithDemo } from './auth.js';
 import { setupDashboard, showLoading, hideLoading, handleError, } from './ui.js';
+import { initKofiSystem, showKofiModal } from '../services/kofi.js';
 import {
     renderRunAnalysisTab,
     renderBikeAnalysisTab,
@@ -67,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const demoButton = document.getElementById('demo-button');
     const logoutButton = document.getElementById('logout-button');
     const refreshButton = document.getElementById('refresh-button');
+    const kofiButton = document.getElementById('kofi-button');
 
     // Run Tab
     const applyFilterButton = document.getElementById('apply-date-filter');
@@ -611,6 +613,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderedTabs.add('run-tab');
             setupYearlySelector();
 
+            // Initialize Ko-fi support system
+            initKofiSystem();
+
             const initialTabId = getTabIdFromPath(window.location.pathname);
             activateTab(initialTabId, { updateUrl: true, replaceUrl: true });
         } catch (error) {
@@ -670,6 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (logoutButton) logoutButton.addEventListener('click', logout);
     if (refreshButton) refreshButton.addEventListener('click', refreshActivities);
+    if (kofiButton) kofiButton.addEventListener('click', showKofiModal);
 
     // --- SERVICE WORKER REGISTRATION (PWA) ---
     if ('serviceWorker' in navigator) {
