@@ -16,6 +16,7 @@ import {
     renderWrappedTab,
     renderMapTab,
     renderAIChatTab,
+    renderRunPlusTab,
 } from '../tabs/index.js';
 import {
     fetchAllActivities,
@@ -48,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabConfig = {
         'dashboard-tab': { render: () => renderDashboardTab(allActivities, dateFilterFrom, dateFilterTo), usesFilters: true },
         'run-tab': { render: () => renderRunAnalysisTab(allActivities, dateFilterFrom, dateFilterTo, runGearFilter, runRollingWindow), usesFilters: true },
+        'run-plus-tab': { render: () => renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, runGearFilter, getRunPlusRenderOptions()), usesFilters: true },
         'bike-tab': { render: () => renderBikeAnalysisTab(allActivities, dateFilterFrom, dateFilterTo, bikeGearFilter, bikeRollingWindow), usesFilters: true },
         'swim-tab': { render: () => renderSwimAnalysisTab(allActivities, dateFilterFrom, dateFilterTo, swimRollingWindow), usesFilters: true },
         'trends-tab': { render: () => renderTrendsTab(allActivities, dateFilterFrom, dateFilterTo, trendsSportFilter, trendsDataType), usesFilters: true },
@@ -166,6 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const routeToTab = {
         '/': 'dashboard-tab',
         '/run': 'run-tab',
+        '/run-plus': 'run-plus-tab',
         '/dashboard': 'dashboard-tab',
         '/bike': 'bike-tab',
         '/swim': 'swim-tab',
@@ -183,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const tabToRoute = {
         'run-tab': '/run',
+        'run-plus-tab': '/run-plus',
         'dashboard-tab': '/dashboard',
         'bike-tab': '/bike',
         'swim-tab': '/swim',
@@ -291,6 +295,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let activeTabId = null;
+
+    function getRunPlusRenderOptions() {
+        return {
+            onFiltersChange: handleRunPlusFiltersChange
+        };
+    }
+
+    function handleRunPlusFiltersChange({ dateFilterFrom: newFrom = null, dateFilterTo: newTo = null, gearFilter: newGear = 'all' } = {}) {
+        dateFilterFrom = newFrom || null;
+        dateFilterTo = newTo || null;
+        runGearFilter = newGear || 'all';
+
+        if (dateFromEl) dateFromEl.value = dateFilterFrom || '';
+        if (dateToEl) dateToEl.value = dateFilterTo || '';
+        if (runGearFilterEl) runGearFilterEl.value = runGearFilter;
+        document.querySelectorAll('#year-filter-buttons .year-btn').forEach(b => b.classList.remove('active'));
+
+        if (dateFilterFrom && dateFilterTo && dateFilterFrom.slice(5) === '01-01' && dateFilterTo.slice(5) === '12-31') {
+            const year = dateFilterFrom.slice(0, 4);
+            document.querySelector(`#year-filter-buttons .year-btn[data-year="${year}"]`)?.classList.add('active');
+        }
+
+        saveFilterState();
+        renderRunRelatedTabs();
+    }
+
+    function renderRunRelatedTabs() {
+        renderRunAnalysisTab(allActivities, dateFilterFrom, dateFilterTo, runGearFilter, runRollingWindow);
+        if (renderedTabs.has('run-plus-tab') || activeTabId === 'run-plus-tab') {
+            renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, runGearFilter, getRunPlusRenderOptions());
+            renderedTabs.add('run-plus-tab');
+        }
+    }
 
     function activateTab(tabId, { updateUrl = false, replaceUrl = false } = {}) {
         if (tabId === activeTabId) return; // skip if already active
@@ -435,7 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     runGearFilter = runGearFilterEl?.value || runGearFilter || 'all';
                     saveFilterState();
 
-                    renderRunAnalysisTab(allActivities, dateFilterFrom, dateFilterTo, runGearFilter, runRollingWindow);
+                    renderRunRelatedTabs();
                 });
             });
         }
@@ -702,7 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dateFilterTo = dateToEl?.value || null;
             runGearFilter = runGearFilterEl?.value || 'all';
             saveFilterState();
-            renderRunAnalysisTab(allActivities, dateFilterFrom, dateFilterTo, runGearFilter, runRollingWindow);
+            renderRunRelatedTabs();
         });
     }
 
@@ -716,7 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (runGearFilterEl) runGearFilterEl.value = 'all';
             document.querySelectorAll('#year-filter-buttons .year-btn').forEach(b => b.classList.remove('active'));
             saveFilterState();
-            renderRunAnalysisTab(allActivities, dateFilterFrom, dateFilterTo, runGearFilter, runRollingWindow);
+            renderRunRelatedTabs();
         });
     }
 
@@ -724,7 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
         runGearFilterEl.addEventListener('change', () => {
             runGearFilter = runGearFilterEl.value || 'all';
             saveFilterState();
-            renderRunAnalysisTab(allActivities, dateFilterFrom, dateFilterTo, runGearFilter, runRollingWindow);
+            renderRunRelatedTabs();
         });
     }
 
@@ -734,7 +771,7 @@ document.addEventListener('DOMContentLoaded', () => {
         runRollingWindow = parseInt(runRollingWindowEl.value) || 26;
         runRollingWindowEl.addEventListener('change', () => {
             runRollingWindow = parseInt(runRollingWindowEl.value) || 26;
-            renderRunAnalysisTab(allActivities, dateFilterFrom, dateFilterTo, runGearFilter, runRollingWindow);
+            renderRunRelatedTabs();
         });
     }
 
