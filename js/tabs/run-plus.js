@@ -8,8 +8,65 @@ const RUN_PLUS_ID_PREFIX = 'run-plus-';
 const RUN_TYPE_RE = /run/i;
 const RACE_NAME_RE = /马拉松|半马|半程|比赛|race|marathon|赛事|pb|5k|10k/i;
 const CAPACITY_INPUTS_STORAGE_KEY = 'run_plus_capacity_inputs_v1';
+const NSM_SETTINGS_STORAGE_KEY = 'run_plus_nsm_settings_v1';
+const NSM_ACTIVITY_TAGS_STORAGE_KEY = 'run_plus_nsm_activity_tags_v1';
+const NSM_SESSION_INPUTS_STORAGE_KEY = 'run_plus_nsm_session_inputs_v1';
+const NSM_TESTS_STORAGE_KEY = 'run_plus_nsm_tests_v1';
+const NSM_INTERVAL_ANALYSIS_STORAGE_KEY = 'run_plus_nsm_interval_analysis_v1';
+const NSM_INTERVAL_ANALYZER_VERSION = 4;
 const IMPACT_ATL_DAYS = 7;
 const IMPACT_CTL_DAYS = 42;
+const NSM_THRESHOLD_RE = /threshold|tempo|subt|sub-threshold|nsm|umbral|terskel| cruise /i;
+const NSM_EASY_RE = /easy|recovery|recover|suave|regenerativo|aerobic|z2/i;
+const NSM_LONG_RE = /long run|longrun|tirada|fondo|long/i;
+const NSM_RACE_TEST_RE = /race|比赛|赛事|pb|time trial|tt|test|5k|10k|half|hm|marathon|半马|半程|马拉松/i;
+const NSM_SUBT_TAGS = new Set(['subt_short', 'subt_medium', 'subt_long']);
+const NSM_DEFAULT_SETTINGS = {
+    easyHrCapPct: 70,
+    thresholdHrPct: 87,
+    currentBlockStart: '',
+    currentBlockEnd: '',
+    targetRace: '',
+    weeklyTemplate: 'standard'
+};
+const NSM_WEEKLY_TARGETS = {
+    subThresholdSessions: 3,
+    easySessions: 3,
+    longRuns: 1,
+    subThresholdShareLow: 0.20,
+    subThresholdShareHigh: 0.25
+};
+const NSM_TAG_OPTIONS = [
+    ['auto', 'Auto'],
+    ['easy', 'Easy'],
+    ['subt_short', 'SubT short'],
+    ['subt_medium', 'SubT medium'],
+    ['subt_long', 'SubT long'],
+    ['long', 'Long run'],
+    ['race_test', 'Race / test'],
+    ['other', 'Other'],
+    ['excluded', 'Exclude']
+];
+const NSM_TEMPLATE_OPTIONS = [
+    ['auto', 'Auto'],
+    ['8x3', '8 x 3 min'],
+    ['10x3', '10 x 3 min'],
+    ['8x4', '8 x 4 min'],
+    ['6x6', '6 x 6 min'],
+    ['4x8', '4 x 8 min'],
+    ['3x10', '3 x 10 min'],
+    ['3x12', '3 x 12 min'],
+    ['custom', 'Custom']
+];
+const NSM_TEMPLATE_DEFINITIONS = {
+    '8x3': { reps: 8, workSec: 180, recoverySec: 60, family: '8x3' },
+    '10x3': { reps: 10, workSec: 180, recoverySec: 60, family: '10x3' },
+    '8x4': { reps: 8, workSec: 240, recoverySec: 75, family: '8x4' },
+    '6x6': { reps: 6, workSec: 360, recoverySec: 90, family: '6x6' },
+    '4x8': { reps: 4, workSec: 480, recoverySec: 120, family: '4x8' },
+    '3x10': { reps: 3, workSec: 600, recoverySec: 180, family: '3x10' },
+    '3x12': { reps: 3, workSec: 720, recoverySec: 180, family: '3x12' }
+};
 let runPlusRollingWindow = 26;
 
 const FIELD_GROUPS = [
@@ -284,6 +341,1424 @@ function capacityModifierFromInputs(inputs) {
         notes,
         inputs: normalized,
         hasInputs: hasCapacityInputs(normalized)
+    };
+}
+
+function readJsonStorage(key, fallback) {
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return fallback;
+        const parsed = JSON.parse(raw);
+        return parsed ?? fallback;
+    } catch (_err) {
+        return fallback;
+    }
+}
+
+function writeJsonStorage(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+}
+
+function parseNsmNumber(value, min, max, fallback = null) {
+    if (value === '' || value === null || value === undefined) return fallback;
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return clamp(number, min, max);
+}
+
+function normalizeNsmSettings(raw = {}) {
+    const settings = { ...NSM_DEFAULT_SETTINGS, ...(raw || {}) };
+    return {
+        easyHrCapPct: parseNsmNumber(settings.easyHrCapPct, 50, 85, NSM_DEFAULT_SETTINGS.easyHrCapPct),
+        thresholdHrPct: parseNsmNumber(settings.thresholdHrPct, 75, 95, NSM_DEFAULT_SETTINGS.thresholdHrPct),
+        currentBlockStart: /^\d{4}-\d{2}-\d{2}$/.test(settings.currentBlockStart || '') ? settings.currentBlockStart : '',
+        currentBlockEnd: /^\d{4}-\d{2}-\d{2}$/.test(settings.currentBlockEnd || '') ? settings.currentBlockEnd : '',
+        targetRace: String(settings.targetRace || '').slice(0, 80),
+        weeklyTemplate: ['standard', 'intro', 'marathon'].includes(settings.weeklyTemplate) ? settings.weeklyTemplate : 'standard'
+    };
+}
+
+function readNsmSettings() {
+    return normalizeNsmSettings(readJsonStorage(NSM_SETTINGS_STORAGE_KEY, {}));
+}
+
+function readNsmActivityTags() {
+    const raw = readJsonStorage(NSM_ACTIVITY_TAGS_STORAGE_KEY, {});
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+}
+
+function readNsmSessionInputs() {
+    const raw = readJsonStorage(NSM_SESSION_INPUTS_STORAGE_KEY, {});
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+}
+
+function readNsmTests() {
+    const raw = readJsonStorage(NSM_TESTS_STORAGE_KEY, []);
+    return Array.isArray(raw) ? raw.map(normalizeNsmTest).filter(Boolean) : [];
+}
+
+function getActivityKey(run) {
+    return String(run?.id || [dateKey(run), run?.name || 'Run', Math.round(km(run) * 1000), Number(run?.moving_time) || 0].join('|'));
+}
+
+function normalizeNsmTag(value) {
+    return NSM_TAG_OPTIONS.some(option => option[0] === value) ? value : 'auto';
+}
+
+function normalizeNsmTemplate(value) {
+    return NSM_TEMPLATE_OPTIONS.some(option => option[0] === value) ? value : 'auto';
+}
+
+function normalizeNsmActivityTag(raw = {}) {
+    const tag = normalizeNsmTag(raw.tag);
+    return {
+        tag,
+        includeInNsm: raw.includeInNsm === false ? false : tag !== 'excluded',
+        updatedAt: raw.updatedAt || new Date().toISOString()
+    };
+}
+
+function parsePaceInput(value) {
+    const text = String(value || '').trim();
+    if (!text) return null;
+    if (/^\d+(\.\d+)?$/.test(text)) {
+        const number = Number(text);
+        if (!Number.isFinite(number) || number <= 0) return null;
+        return number < 30 ? Math.round(number * 60) : Math.round(number);
+    }
+    const parts = text.split(':').map(part => Number(part));
+    if (parts.length !== 2 || parts.some(part => !Number.isFinite(part) || part < 0)) return null;
+    return Math.round(parts[0] * 60 + parts[1]);
+}
+
+function formatPaceInput(seconds) {
+    if (!Number.isFinite(seconds) || seconds <= 0) return '';
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${minutes}:${String(secs).padStart(2, '0')}`;
+}
+
+function normalizeNsmSessionInput(raw = {}) {
+    return {
+        template: normalizeNsmTemplate(raw.template),
+        workPaceSec: parseNsmNumber(raw.workPaceSec ?? parsePaceInput(raw.workPace), PACE_FAST_LIMIT_SEC, PACE_SLOW_LIMIT_SEC, null),
+        workHr: parseNsmNumber(raw.workHr, 60, 230, null),
+        workMinutes: parseNsmNumber(raw.workMinutes, 1, 240, null),
+        rpe: parseNsmNumber(raw.rpe, 0, 10, null),
+        lactate: parseNsmNumber(raw.lactate, 0, 12, null),
+        painScore: parseNsmNumber(raw.painScore, 0, 10, null),
+        nextDayScore: parseNsmNumber(raw.nextDayScore, 0, 10, null),
+        notes: String(raw.notes || '').slice(0, 240)
+    };
+}
+
+function hasNsmSessionInput(input = {}) {
+    return input.template !== 'auto'
+        || Number.isFinite(input.workPaceSec)
+        || Number.isFinite(input.workHr)
+        || Number.isFinite(input.workMinutes)
+        || Number.isFinite(input.rpe)
+        || Number.isFinite(input.lactate)
+        || Number.isFinite(input.painScore)
+        || Number.isFinite(input.nextDayScore)
+        || Boolean(input.notes);
+}
+
+function parseDurationInput(value) {
+    const text = String(value || '').trim();
+    if (!text) return null;
+    if (/^\d+(\.\d+)?$/.test(text)) return Math.round(Number(text));
+    const parts = text.split(':').map(part => Number(part));
+    if (parts.some(part => !Number.isFinite(part) || part < 0)) return null;
+    if (parts.length === 2) return Math.round(parts[0] * 60 + parts[1]);
+    if (parts.length === 3) return Math.round(parts[0] * 3600 + parts[1] * 60 + parts[2]);
+    return null;
+}
+
+function formatDurationInput(seconds) {
+    const total = Math.round(Number(seconds) || 0);
+    if (!total) return '-';
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+    if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return `${minutes}:${String(secs).padStart(2, '0')}`;
+}
+
+function normalizeNsmTest(raw = {}) {
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(raw.date || '') ? raw.date : '';
+    const distanceKm = parseNsmNumber(raw.distanceKm, 0.4, 100, null);
+    const timeSec = parseNsmNumber(raw.timeSec ?? parseDurationInput(raw.time), 30, 86400, null);
+    if (!date || !Number.isFinite(distanceKm) || !Number.isFinite(timeSec)) return null;
+    return {
+        id: String(raw.id || `${date}-${raw.type || 'test'}-${distanceKm}-${timeSec}`),
+        date,
+        type: String(raw.type || 'TT').slice(0, 24),
+        distanceKm,
+        timeSec,
+        sourceActivityId: raw.sourceActivityId ? String(raw.sourceActivityId) : '',
+        notes: String(raw.notes || '').slice(0, 160)
+    };
+}
+
+function getNsmTemplateDefinition(input = {}) {
+    return NSM_TEMPLATE_DEFINITIONS[normalizeNsmTemplate(input.template)] || null;
+}
+
+function hasNsmManualWorkOverride(input = {}) {
+    return Number.isFinite(input.workPaceSec)
+        || Number.isFinite(input.workHr)
+        || Number.isFinite(input.workMinutes);
+}
+
+function getNsmActivityFingerprint(run) {
+    return [
+        dateKey(run),
+        run?.start_date || '',
+        run?.start_date_local || '',
+        Math.round(Number(run?.distance) || 0),
+        Math.round(Number(run?.moving_time) || 0)
+    ].join('|');
+}
+
+function readNsmIntervalAnalysisCache() {
+    const raw = readJsonStorage(NSM_INTERVAL_ANALYSIS_STORAGE_KEY, {});
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+}
+
+function writeNsmIntervalAnalysisCache(cache) {
+    try {
+        writeJsonStorage(NSM_INTERVAL_ANALYSIS_STORAGE_KEY, cache);
+    } catch (_err) {
+        const compact = Object.fromEntries(Object.entries(cache).slice(-80));
+        writeJsonStorage(NSM_INTERVAL_ANALYSIS_STORAGE_KEY, compact);
+    }
+}
+
+function nsmFiniteOrNull(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+}
+
+function normalizeNsmHrOverlay(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const source = raw.source === 'streams' ? 'streams' : '';
+    if (!source) return null;
+    const hrConfidence = ['high', 'medium', 'low', 'unavailable'].includes(raw.hrConfidence)
+        ? raw.hrConfidence
+        : ['high', 'medium', 'low'].includes(raw.confidence)
+            ? raw.confidence
+            : 'low';
+    return {
+        source,
+        confidence: ['high', 'medium', 'low'].includes(raw.confidence) ? raw.confidence : hrConfidence === 'unavailable' ? 'low' : hrConfidence,
+        hrConfidence,
+        hrResponse: nsmFiniteOrNull(raw.hrResponse),
+        hrMetricUsed: raw.hrMetricUsed || '',
+        earlyRepRange: raw.earlyRepRange || '',
+        lateRepRange: raw.lateRepRange || '',
+        earlyHrMetric: nsmFiniteOrNull(raw.earlyHrMetric),
+        lateHrMetric: nsmFiniteOrNull(raw.lateHrMetric),
+        lateEndHr: nsmFiniteOrNull(raw.lateEndHr),
+        lateSurge: nsmFiniteOrNull(raw.lateSurge),
+        recoveryHrDrop: nsmFiniteOrNull(raw.recoveryHrDrop),
+        avgWorkHr: nsmFiniteOrNull(raw.avgWorkHr),
+        avgEndHr: nsmFiniteOrNull(raw.avgEndHr),
+        avgLast60Hr: nsmFiniteOrNull(raw.avgLast60Hr),
+        avgLast120Hr: nsmFiniteOrNull(raw.avgLast120Hr),
+        avgFinalThirdHr: nsmFiniteOrNull(raw.avgFinalThirdHr),
+        avgHrRiseWithinRep: nsmFiniteOrNull(raw.avgHrRiseWithinRep),
+        warnings: Array.isArray(raw.warnings) ? raw.warnings : []
+    };
+}
+
+function nsmHrConfidenceRank(value) {
+    if (value === 'high') return 3;
+    if (value === 'medium') return 2;
+    if (value === 'low') return 1;
+    return 0;
+}
+
+function chooseNsmHrOverlay(existingOverlay, nextOverlay) {
+    const existing = normalizeNsmHrOverlay(existingOverlay);
+    const next = normalizeNsmHrOverlay(nextOverlay);
+    if (!existing) return next;
+    if (!next) return existing;
+    const existingRank = nsmHrConfidenceRank(existing.hrConfidence);
+    const nextRank = nsmHrConfidenceRank(next.hrConfidence);
+    if (nextRank > existingRank) return next;
+    if (nextRank < existingRank) return existing;
+    const existingHasResponse = Number.isFinite(existing.hrResponse);
+    const nextHasResponse = Number.isFinite(next.hrResponse);
+    if (nextHasResponse && !existingHasResponse) return next;
+    if (!nextHasResponse && existingHasResponse) return existing;
+    return next;
+}
+
+function buildNsmHrOverlayFromAnalysis(analysis) {
+    if (!analysis || analysis.source !== 'streams') return null;
+    const summary = analysis.summary || {};
+    const structuralConfidence = ['high', 'medium', 'low'].includes(analysis.confidence) ? analysis.confidence : 'low';
+    const rawHrConfidence = summary.hrConfidence || (Number.isFinite(summary.hrResponse) ? structuralConfidence : 'unavailable');
+    return normalizeNsmHrOverlay({
+        source: 'streams',
+        confidence: structuralConfidence,
+        hrConfidence: rawHrConfidence,
+        hrResponse: summary.hrResponse,
+        hrMetricUsed: summary.hrMetricUsed,
+        earlyRepRange: summary.earlyRepRange,
+        lateRepRange: summary.lateRepRange,
+        earlyHrMetric: summary.earlyHrMetric,
+        lateHrMetric: summary.lateHrMetric,
+        lateEndHr: summary.lateEndHr,
+        lateSurge: summary.lateSurge,
+        recoveryHrDrop: summary.recoveryHrDrop,
+        avgWorkHr: summary.avgWorkHr,
+        avgEndHr: summary.avgEndHr,
+        avgLast60Hr: summary.avgLast60Hr,
+        avgLast120Hr: summary.avgLast120Hr,
+        avgFinalThirdHr: summary.avgFinalThirdHr,
+        avgHrRiseWithinRep: summary.avgHrRiseWithinRep,
+        warnings: analysis.warnings
+    });
+}
+
+function getNsmHrOverlay(analysis) {
+    const explicit = normalizeNsmHrOverlay(analysis?.hrOverlay);
+    if (explicit) return explicit;
+    if (analysis?.source === 'streams') return buildNsmHrOverlayFromAnalysis(analysis);
+    return null;
+}
+
+function mergeNsmHrOverlay(baseAnalysis, streamAnalysis, run, input, tag) {
+    const overlay = chooseNsmHrOverlay(getNsmHrOverlay(baseAnalysis), buildNsmHrOverlayFromAnalysis(streamAnalysis));
+    if (!overlay) return baseAnalysis || streamAnalysis;
+    const base = baseAnalysis || buildNsmActivityAverageAnalysis(run, input, tag);
+    if (['manual', 'laps'].includes(base.source)) {
+        return {
+            ...base,
+            hrOverlay: overlay,
+            warnings: [...(base.warnings || []), ...(overlay.warnings || [])]
+        };
+    }
+    return {
+        ...streamAnalysis,
+        hrOverlay: overlay
+    };
+}
+
+function normalizeNsmIntervalAnalysis(raw, run) {
+    if (!raw || typeof raw !== 'object') return null;
+    if (raw.analyzerVersion !== NSM_INTERVAL_ANALYZER_VERSION) return null;
+    if (raw.fingerprint !== getNsmActivityFingerprint(run)) return null;
+    const summary = raw.summary && typeof raw.summary === 'object' ? raw.summary : {};
+    const source = ['manual', 'laps', 'streams', 'activity_average'].includes(raw.source) ? raw.source : 'activity_average';
+    const confidence = ['high', 'medium', 'low'].includes(raw.confidence) ? raw.confidence : 'low';
+    return {
+        ...raw,
+        source,
+        confidence,
+        summary: {
+            ...summary,
+            workMinutes: Number(summary.workMinutes) || 0,
+            workSegments: Number(summary.workSegments) || 0,
+            recoverySegments: Number(summary.recoverySegments) || 0,
+            avgWorkPaceSec: nsmFiniteOrNull(summary.avgWorkPaceSec),
+            avgWorkHr: nsmFiniteOrNull(summary.avgWorkHr),
+            avgEndHr: nsmFiniteOrNull(summary.avgEndHr),
+            avgLast60Hr: nsmFiniteOrNull(summary.avgLast60Hr),
+            avgLast120Hr: nsmFiniteOrNull(summary.avgLast120Hr),
+            avgFinalThirdHr: nsmFiniteOrNull(summary.avgFinalThirdHr),
+            avgHrRiseWithinRep: nsmFiniteOrNull(summary.avgHrRiseWithinRep),
+            paceCv: nsmFiniteOrNull(summary.paceCv),
+            paceFadePct: nsmFiniteOrNull(summary.paceFadePct),
+            hrDrift: nsmFiniteOrNull(summary.hrDrift),
+            hrResponse: nsmFiniteOrNull(summary.hrResponse),
+            earlyHrMetric: nsmFiniteOrNull(summary.earlyHrMetric),
+            lateHrMetric: nsmFiniteOrNull(summary.lateHrMetric),
+            lateEndHr: nsmFiniteOrNull(summary.lateEndHr),
+            lateSurge: nsmFiniteOrNull(summary.lateSurge),
+            recoveryHrDrop: nsmFiniteOrNull(summary.recoveryHrDrop),
+            hrMetricUsed: summary.hrMetricUsed || '',
+            hrConfidence: summary.hrConfidence || (source === 'streams' ? 'low' : source === 'laps' ? 'proxy' : 'unavailable'),
+            earlyRepRange: summary.earlyRepRange || '',
+            lateRepRange: summary.lateRepRange || '',
+            workoutFamily: summary.workoutFamily || ''
+        },
+        hrOverlay: normalizeNsmHrOverlay(raw.hrOverlay),
+        segments: Array.isArray(raw.segments) ? raw.segments : [],
+        warnings: Array.isArray(raw.warnings) ? raw.warnings : []
+    };
+}
+
+function getCachedNsmIntervalAnalysis(activityId, run) {
+    const cache = readNsmIntervalAnalysisCache();
+    return normalizeNsmIntervalAnalysis(cache[activityId], run);
+}
+
+function saveNsmIntervalAnalysis(activityId, run, analysis) {
+    if (!activityId || !analysis) return;
+    const cache = readNsmIntervalAnalysisCache();
+    cache[activityId] = {
+        ...analysis,
+        activityId,
+        analyzerVersion: NSM_INTERVAL_ANALYZER_VERSION,
+        fingerprint: getNsmActivityFingerprint(run),
+        generatedAt: new Date().toISOString()
+    };
+    writeNsmIntervalAnalysisCache(cache);
+}
+
+function estimateNsmFallbackWorkMinutes(run, tag, input = {}) {
+    if (Number.isFinite(input.workMinutes)) return input.workMinutes;
+    const template = getNsmTemplateDefinition(input);
+    if (template) return Math.min(runMinutes(run), template.reps * template.workSec / 60);
+    const minutes = runMinutes(run);
+    const caps = { subt_short: 30, subt_medium: 45, subt_long: 70 };
+    return clamp(minutes * 0.48, Math.min(minutes, 8), Math.min(minutes, caps[tag] || 45));
+}
+
+function nsmWeightedAverage(items, valueKey, weightKey = 'duration') {
+    const weighted = items
+        .map(item => {
+            const rawValue = item[valueKey];
+            const value = rawValue === null || rawValue === undefined || rawValue === '' ? NaN : Number(rawValue);
+            return { value, weight: Number(item[weightKey]) || 0 };
+        })
+        .filter(item => Number.isFinite(item.value) && item.weight > 0);
+    const totalWeight = sum(weighted.map(item => item.weight));
+    return totalWeight > 0 ? sum(weighted.map(item => item.value * item.weight)) / totalWeight : null;
+}
+
+function nsmCoefficientOfVariation(values) {
+    const clean = values.filter(value => Number.isFinite(value) && value > 0);
+    if (clean.length < 2) return null;
+    const mean = average(clean);
+    if (!mean) return null;
+    const variance = average(clean.map(value => Math.pow(value - mean, 2)));
+    return variance == null ? null : Math.sqrt(variance) / mean;
+}
+
+function nsmRepRangeLabel(startIndex, endIndex) {
+    if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) return '';
+    const start = startIndex + 1;
+    const end = endIndex + 1;
+    return start === end ? `${start}` : `${start}-${end}`;
+}
+
+function getNsmHrComparisonWindows(work) {
+    const count = work.length;
+    if (count < 2) return null;
+    if (count === 2) {
+        return { earlyStart: 0, earlyEnd: 0, lateStart: 1, lateEnd: 1 };
+    }
+    if (count <= 4) {
+        return { earlyStart: 1, earlyEnd: 1, lateStart: count - 1, lateEnd: count - 1 };
+    }
+    if (count <= 7) {
+        return { earlyStart: 1, earlyEnd: 2, lateStart: count - 2, lateEnd: count - 1 };
+    }
+    return { earlyStart: 2, earlyEnd: 3, lateStart: count - 2, lateEnd: count - 1 };
+}
+
+function getNsmHrMetricConfig(work) {
+    const averageDuration = average(work.map(segment => segment.duration).filter(Number.isFinite));
+    if (!Number.isFinite(averageDuration) || averageDuration <= 240) {
+        return { key: 'last60Hr', label: 'last60 HR' };
+    }
+    if (averageDuration <= 480) {
+        return { key: 'last120Hr', label: 'last120 HR' };
+    }
+    return { key: 'finalThirdHr', label: 'final-third HR' };
+}
+
+function getNsmSegmentHrMetric(segment, key) {
+    const fallbackKeys = key === 'finalThirdHr'
+        ? ['finalThirdHr', 'last120Hr', 'last60Hr', 'endHr', 'avgHr']
+        : key === 'last120Hr'
+            ? ['last120Hr', 'last60Hr', 'endHr', 'avgHr']
+            : ['last60Hr', 'endHr', 'avgHr'];
+    for (const candidate of fallbackKeys) {
+        const value = nsmFiniteOrNull(segment?.[candidate]);
+        if (Number.isFinite(value)) return value;
+    }
+    return null;
+}
+
+function summarizeNsmHrResponse(work, source) {
+    const hasAnyHr = work.some(segment => ['avgHr', 'endHr', 'last60Hr', 'last120Hr', 'finalThirdHr']
+        .some(key => Number.isFinite(nsmFiniteOrNull(segment?.[key]))));
+    if (source !== 'streams') {
+        return {
+            hrResponse: null,
+            hrDrift: null,
+            earlyHrMetric: null,
+            lateHrMetric: null,
+            lateEndHr: null,
+            lateSurge: null,
+            hrMetricUsed: '',
+            hrConfidence: source === 'laps' ? 'proxy' : source === 'manual' ? 'proxy' : 'unavailable',
+            earlyRepRange: '',
+            lateRepRange: ''
+        };
+    }
+    const windows = getNsmHrComparisonWindows(work);
+    if (!windows || !hasAnyHr) {
+        return {
+            hrResponse: null,
+            hrDrift: null,
+            earlyHrMetric: null,
+            lateHrMetric: null,
+            lateEndHr: null,
+            lateSurge: null,
+            hrMetricUsed: '',
+            hrConfidence: hasAnyHr ? 'low' : 'unavailable',
+            earlyRepRange: '',
+            lateRepRange: ''
+        };
+    }
+
+    const metric = getNsmHrMetricConfig(work);
+    const early = work.slice(windows.earlyStart, windows.earlyEnd + 1)
+        .map(segment => ({ ...segment, hrMetric: getNsmSegmentHrMetric(segment, metric.key) }));
+    const late = work.slice(windows.lateStart, windows.lateEnd + 1)
+        .map(segment => ({ ...segment, hrMetric: getNsmSegmentHrMetric(segment, metric.key) }));
+    const earlyHrMetric = nsmWeightedAverage(early, 'hrMetric', 'duration');
+    const lateHrMetric = nsmWeightedAverage(late, 'hrMetric', 'duration');
+    const lateEndHr = nsmWeightedAverage(late, 'endHr', 'duration');
+    const hrResponse = Number.isFinite(earlyHrMetric) && Number.isFinite(lateHrMetric)
+        ? lateHrMetric - earlyHrMetric
+        : null;
+    const lateSurge = Number.isFinite(lateEndHr) && Number.isFinite(lateHrMetric)
+        ? lateEndHr - lateHrMetric
+        : null;
+
+    return {
+        hrResponse,
+        hrDrift: hrResponse,
+        earlyHrMetric,
+        lateHrMetric,
+        lateEndHr,
+        lateSurge,
+        hrMetricUsed: metric.label,
+        hrConfidence: Number.isFinite(hrResponse) ? 'high' : 'low',
+        earlyRepRange: nsmRepRangeLabel(windows.earlyStart, windows.earlyEnd),
+        lateRepRange: nsmRepRangeLabel(windows.lateStart, windows.lateEnd)
+    };
+}
+
+function summarizeNsmIntervalSegments(segments, input = {}, source = 'activity_average') {
+    const work = segments.filter(segment => segment.type === 'work');
+    const recovery = segments.filter(segment => segment.type === 'recovery');
+    const workMinutes = sum(work.map(segment => segment.duration)) / 60;
+    const avgWorkSpeed = nsmWeightedAverage(work, 'avgSpeed', 'duration');
+    const avgWorkPaceSec = avgWorkSpeed && avgWorkSpeed > 0 ? 1000 / avgWorkSpeed : null;
+    const firstHalf = work.slice(0, Math.ceil(work.length / 2));
+    const secondHalf = work.slice(Math.floor(work.length / 2));
+    const firstPace = nsmWeightedAverage(firstHalf, 'avgPaceSec', 'duration');
+    const secondPace = nsmWeightedAverage(secondHalf, 'avgPaceSec', 'duration');
+    const hrResponse = summarizeNsmHrResponse(work, source);
+    const recoveryDrops = recovery
+        .map(segment => Number(segment.startHr) - Number(segment.endHr))
+        .filter(Number.isFinite);
+
+    return {
+        workSegments: work.length,
+        recoverySegments: recovery.length,
+        workMinutes,
+        avgWorkPaceSec,
+        avgWorkHr: nsmWeightedAverage(work, 'avgHr', 'duration'),
+        avgEndHr: nsmWeightedAverage(work, 'endHr', 'duration'),
+        avgLast60Hr: nsmWeightedAverage(work, 'last60Hr', 'duration'),
+        avgLast120Hr: nsmWeightedAverage(work, 'last120Hr', 'duration'),
+        avgFinalThirdHr: nsmWeightedAverage(work, 'finalThirdHr', 'duration'),
+        avgHrRiseWithinRep: nsmWeightedAverage(work, 'hrRiseWithinRep', 'duration'),
+        paceCv: nsmCoefficientOfVariation(work.map(segment => segment.avgPaceSec)),
+        paceFadePct: Number.isFinite(firstPace) && firstPace > 0 && Number.isFinite(secondPace) ? (secondPace - firstPace) / firstPace : null,
+        ...hrResponse,
+        recoveryHrDrop: recoveryDrops.length ? average(recoveryDrops) : null,
+        workoutFamily: getNsmTemplateDefinition(input)?.family || normalizeNsmTemplate(input.template)
+    };
+}
+
+function makeNsmIntervalAnalysis(source, confidence, run, input, segments = [], warnings = []) {
+    const summary = summarizeNsmIntervalSegments(segments, input, source);
+    return {
+        source,
+        confidence,
+        summary,
+        segments: segments.map(segment => ({
+            type: segment.type,
+            index: segment.index,
+            startSec: Math.round(segment.startSec),
+            endSec: Math.round(segment.endSec),
+            duration: Math.round(segment.duration),
+            distance: Math.round(segment.distance),
+            avgPaceSec: Number.isFinite(segment.avgPaceSec) ? Math.round(segment.avgPaceSec) : null,
+            avgHr: Number.isFinite(segment.avgHr) ? Math.round(segment.avgHr) : null,
+            endHr: Number.isFinite(segment.endHr) ? Math.round(segment.endHr) : null,
+            last60Hr: Number.isFinite(segment.last60Hr) ? Math.round(segment.last60Hr) : null,
+            last120Hr: Number.isFinite(segment.last120Hr) ? Math.round(segment.last120Hr) : null,
+            finalThirdHr: Number.isFinite(segment.finalThirdHr) ? Math.round(segment.finalThirdHr) : null,
+            hrRiseWithinRep: Number.isFinite(segment.hrRiseWithinRep) ? Math.round(segment.hrRiseWithinRep) : null,
+            elevationGain: Number.isFinite(segment.elevationGain) ? Math.round(segment.elevationGain) : null
+        })),
+        warnings
+    };
+}
+
+function buildNsmManualIntervalAnalysis(run, input = {}, tag = 'subt_medium') {
+    const workMinutes = estimateNsmFallbackWorkMinutes(run, tag, input);
+    const avgSpeed = Number.isFinite(input.workPaceSec) && input.workPaceSec > 0 ? 1000 / input.workPaceSec : null;
+    const distance = avgSpeed ? avgSpeed * workMinutes * 60 : 0;
+    const segment = {
+        type: 'work',
+        index: 1,
+        startSec: 0,
+        endSec: workMinutes * 60,
+        duration: workMinutes * 60,
+        distance,
+        avgSpeed,
+        avgPaceSec: Number.isFinite(input.workPaceSec) ? input.workPaceSec : null,
+        avgHr: Number.isFinite(input.workHr) ? input.workHr : null,
+        endHr: Number.isFinite(input.workHr) ? input.workHr : null,
+        last60Hr: Number.isFinite(input.workHr) ? input.workHr : null,
+        elevationGain: null
+    };
+    const confidence = hasNsmManualWorkOverride(input) ? 'high' : 'medium';
+    return makeNsmIntervalAnalysis('manual', confidence, run, input, [segment], ['Manual or template proxy; not parsed from activity streams.']);
+}
+
+function buildNsmActivityAverageAnalysis(run, input = {}, tag = 'subt_medium') {
+    const workMinutes = estimateNsmFallbackWorkMinutes(run, tag, input);
+    const avgPaceSec = paceSec(run);
+    const avgSpeed = Number.isFinite(avgPaceSec) && avgPaceSec > 0 ? 1000 / avgPaceSec : null;
+    const avgHr = Number(run.average_heartrate);
+    const segment = {
+        type: 'work',
+        index: 1,
+        startSec: 0,
+        endSec: workMinutes * 60,
+        duration: workMinutes * 60,
+        distance: avgSpeed ? avgSpeed * workMinutes * 60 : 0,
+        avgSpeed,
+        avgPaceSec: Number.isFinite(avgPaceSec) ? avgPaceSec : null,
+        avgHr: Number.isFinite(avgHr) ? avgHr : null,
+        endHr: Number.isFinite(avgHr) ? avgHr : null,
+        last60Hr: Number.isFinite(avgHr) ? avgHr : null,
+        elevationGain: null
+    };
+    return makeNsmIntervalAnalysis('activity_average', 'low', run, input, [segment], ['Activity-average proxy; warmup, recovery, and cooldown may dilute SubT work.']);
+}
+
+function normalizeNsmLap(lap, index) {
+    const duration = Number(lap?.moving_time || lap?.elapsed_time) || 0;
+    const distance = Number(lap?.distance) || 0;
+    const avgSpeed = Number(lap?.average_speed) || (duration > 0 ? distance / duration : 0);
+    if (duration < 20 || distance <= 0 || avgSpeed <= 0) return null;
+    const avgHr = Number(lap?.average_heartrate);
+    return {
+        raw: lap,
+        index: index + 1,
+        startSec: null,
+        endSec: duration,
+        duration,
+        distance,
+        avgSpeed,
+        avgPaceSec: 1000 / avgSpeed,
+        avgHr: Number.isFinite(avgHr) ? avgHr : null,
+        endHr: Number.isFinite(avgHr) ? avgHr : null,
+        last60Hr: Number.isFinite(avgHr) ? avgHr : null,
+        elevationGain: Number.isFinite(Number(lap?.total_elevation_gain)) ? Number(lap.total_elevation_gain) : null
+    };
+}
+
+function getNsmLapWorkBounds(input = {}) {
+    const template = getNsmTemplateDefinition(input);
+    return {
+        template,
+        minWorkSec: template ? Math.max(50, template.workSec * 0.45) : 75,
+        maxWorkSec: template ? template.workSec * 1.85 : 1800,
+        minRecoverySec: template ? Math.max(20, template.recoverySec * 0.35) : 25
+    };
+}
+
+function getNsmAlternatingLapSegments(laps, input = {}) {
+    const { template, minWorkSec, maxWorkSec, minRecoverySec } = getNsmLapWorkBounds(input);
+    const workIds = new Set();
+    const recoveryIds = new Set();
+    const speedRatioFloor = template ? 1.18 : 1.30;
+
+    // Manual interval laps often alternate work/recovery exactly; prefer that structure before using percentile thresholds.
+    for (let index = 0; index < laps.length - 1; index += 1) {
+        const a = laps[index];
+        const b = laps[index + 1];
+        const faster = a.avgSpeed >= b.avgSpeed ? a : b;
+        const slower = faster === a ? b : a;
+        if (faster.duration < minWorkSec || faster.duration > maxWorkSec) continue;
+        if (slower.duration < minRecoverySec) continue;
+        if (slower.avgSpeed <= 0 || faster.avgSpeed / slower.avgSpeed < speedRatioFloor) continue;
+        if (template && Math.abs(faster.duration - template.workSec) > template.workSec * 0.45) continue;
+        workIds.add(faster.index);
+        recoveryIds.add(slower.index);
+    }
+
+    if (workIds.size < 2) return null;
+    const segments = [];
+    let workIndex = 0;
+    let recoveryIndex = 0;
+    laps.forEach(lap => {
+        if (workIds.has(lap.index)) {
+            workIndex += 1;
+            segments.push({ ...lap, type: 'work', index: workIndex });
+        } else if (segments.length && recoveryIds.has(lap.index)) {
+            recoveryIndex += 1;
+            segments.push({
+                ...lap,
+                type: 'recovery',
+                index: recoveryIndex,
+                startHr: lap.avgHr,
+                endHr: lap.avgHr
+            });
+        }
+    });
+
+    return workIndex >= 2 ? segments : null;
+}
+
+function getNsmLapSegments(activity, input = {}) {
+    const laps = Array.isArray(activity?.laps) ? activity.laps.map(normalizeNsmLap).filter(Boolean) : [];
+    if (laps.length < 3) return null;
+    let cursor = 0;
+    laps.forEach(lap => {
+        lap.startSec = cursor;
+        lap.endSec = cursor + lap.duration;
+        cursor = lap.endSec;
+    });
+
+    const alternatingSegments = getNsmAlternatingLapSegments(laps, input);
+    if (alternatingSegments) return alternatingSegments;
+
+    const speeds = laps.map(lap => lap.avgSpeed).filter(Number.isFinite);
+    const speedMedian = median(speeds);
+    if (!speedMedian) return null;
+    const speedP65 = percentile(speeds, 0.65) || speedMedian;
+    const { template, minWorkSec, maxWorkSec } = getNsmLapWorkBounds(input);
+    const speedThreshold = template ? Math.max(speedMedian * 1.04, speedP65 * 0.98) : Math.max(speedMedian * 1.07, speedP65);
+    const workLaps = laps.filter(lap => lap.duration >= minWorkSec && lap.duration <= maxWorkSec && lap.avgSpeed >= speedThreshold);
+    if (!workLaps.length) return null;
+
+    const selectedWork = template && workLaps.length > template.reps
+        ? workLaps
+            .map(lap => ({
+                lap,
+                score: Math.abs(lap.duration - template.workSec) / template.workSec - (lap.avgSpeed / speedThreshold) * 0.2
+            }))
+            .sort((a, b) => a.score - b.score)
+            .slice(0, template.reps)
+            .map(item => item.lap)
+            .sort((a, b) => a.startSec - b.startSec)
+        : workLaps;
+    const workIds = new Set(selectedWork.map(lap => lap.index));
+    const segments = [];
+    let workIndex = 0;
+    let recoveryIndex = 0;
+    laps.forEach(lap => {
+        if (workIds.has(lap.index)) {
+            workIndex += 1;
+            segments.push({ ...lap, type: 'work', index: workIndex });
+        } else if (segments.length && lap.duration >= 30 && lap.avgSpeed < speedThreshold) {
+            recoveryIndex += 1;
+            segments.push({
+                ...lap,
+                type: 'recovery',
+                index: recoveryIndex,
+                startHr: lap.avgHr,
+                endHr: lap.avgHr
+            });
+        }
+    });
+    return segments.filter(segment => segment.type === 'work').length ? segments : null;
+}
+
+function analyzeNsmLaps(activity, run, input = {}) {
+    const segments = getNsmLapSegments(activity, input);
+    if (!segments) return null;
+    const workCount = segments.filter(segment => segment.type === 'work').length;
+    const template = getNsmTemplateDefinition(input);
+    const confidence = workCount >= 2 && (!template || Math.abs(workCount - template.reps) <= 1) ? 'high' : 'medium';
+    return makeNsmIntervalAnalysis('laps', confidence, run, input, segments, []);
+}
+
+function getNsmStreamArray(streams, key) {
+    const value = streams?.[key];
+    if (Array.isArray(value)) return value;
+    if (Array.isArray(value?.data)) return value.data;
+    return [];
+}
+
+function smoothNsmValues(values, windowSize = 7) {
+    const result = [];
+    const radius = Math.max(1, Math.floor(windowSize / 2));
+    values.forEach((_value, index) => {
+        const slice = values.slice(Math.max(0, index - radius), Math.min(values.length, index + radius + 1))
+            .filter(Number.isFinite);
+        result.push(slice.length ? average(slice) : null);
+    });
+    return result;
+}
+
+function buildNsmStreamPoints(streams) {
+    const time = getNsmStreamArray(streams, 'time');
+    const distance = getNsmStreamArray(streams, 'distance');
+    const velocity = getNsmStreamArray(streams, 'velocity_smooth');
+    const heartrate = getNsmStreamArray(streams, 'heartrate');
+    const altitude = getNsmStreamArray(streams, 'altitude');
+    const length = Math.max(time.length, distance.length, velocity.length, heartrate.length, altitude.length);
+    if (length < 30) return [];
+
+    const rawSpeeds = Array.from({ length }, (_unused, index) => {
+        const speed = Number(velocity[index]);
+        if (Number.isFinite(speed) && speed > 0) return speed;
+        const dt = Number(time[index]) - Number(time[index - 1]);
+        const dd = Number(distance[index]) - Number(distance[index - 1]);
+        return dt > 0 && dd >= 0 ? dd / dt : null;
+    });
+    const smoothSpeeds = smoothNsmValues(rawSpeeds, 9);
+    const points = [];
+    for (let index = 0; index < length; index += 1) {
+        const t = Number(time[index]);
+        const d = Number(distance[index]);
+        const speed = Number(smoothSpeeds[index]);
+        if (!Number.isFinite(t) || !Number.isFinite(speed) || speed <= 0.5 || speed > 9) continue;
+        points.push({
+            index,
+            time: t,
+            distance: Number.isFinite(d) ? d : null,
+            speed,
+            hr: Number.isFinite(Number(heartrate[index])) ? Number(heartrate[index]) : null,
+            altitude: Number.isFinite(Number(altitude[index])) ? Number(altitude[index]) : null
+        });
+    }
+    return points.filter((point, index, array) => index === 0 || point.time > array[index - 1].time);
+}
+
+function getNsmPointSegment(points, startIndex, endIndex, type, index) {
+    const slice = points.slice(startIndex, endIndex + 1);
+    if (slice.length < 2) return null;
+    const first = slice[0];
+    const last = slice[slice.length - 1];
+    const duration = last.time - first.time;
+    if (duration <= 0) return null;
+    const distance = Number.isFinite(first.distance) && Number.isFinite(last.distance)
+        ? Math.max(0, last.distance - first.distance)
+        : sum(slice.slice(1).map((point, pointIndex) => Math.max(0, (point.time - slice[pointIndex].time) * point.speed)));
+    const avgSpeed = distance > 0 ? distance / duration : average(slice.map(point => point.speed));
+    const hrs = slice.map(point => point.hr).filter(Number.isFinite);
+    const start30End = first.time + 30;
+    const start30Hrs = slice.filter(point => point.time <= start30End).map(point => point.hr).filter(Number.isFinite);
+    const end30Start = last.time - 30;
+    const end30Hrs = slice.filter(point => point.time >= end30Start).map(point => point.hr).filter(Number.isFinite);
+    const last60Start = last.time - 60;
+    const last60Hrs = slice.filter(point => point.time >= last60Start).map(point => point.hr).filter(Number.isFinite);
+    const last120Start = last.time - 120;
+    const last120Hrs = slice.filter(point => point.time >= last120Start).map(point => point.hr).filter(Number.isFinite);
+    const finalThirdStart = first.time + duration * 2 / 3;
+    const finalThirdHrs = slice.filter(point => point.time >= finalThirdStart).map(point => point.hr).filter(Number.isFinite);
+    const startHr = start30Hrs.length ? average(start30Hrs) : Number.isFinite(first.hr) ? first.hr : null;
+    const endHr = end30Hrs.length ? average(end30Hrs) : Number.isFinite(last.hr) ? last.hr : null;
+    const altitudes = slice.map(point => point.altitude).filter(Number.isFinite);
+    let elevationGain = null;
+    if (altitudes.length >= 2) {
+        elevationGain = 0;
+        for (let i = 1; i < altitudes.length; i += 1) {
+            elevationGain += Math.max(0, altitudes[i] - altitudes[i - 1]);
+        }
+    }
+    return {
+        type,
+        index,
+        startSec: first.time,
+        endSec: last.time,
+        duration,
+        distance,
+        avgSpeed,
+        avgPaceSec: avgSpeed > 0 ? 1000 / avgSpeed : null,
+        avgHr: hrs.length ? average(hrs) : null,
+        startHr,
+        endHr,
+        last60Hr: last60Hrs.length ? average(last60Hrs) : null,
+        last120Hr: last120Hrs.length ? average(last120Hrs) : null,
+        finalThirdHr: finalThirdHrs.length ? average(finalThirdHrs) : null,
+        hrRiseWithinRep: Number.isFinite(startHr) && Number.isFinite(endHr) ? endHr - startHr : null,
+        elevationGain
+    };
+}
+
+function getNsmPointRangeByTime(points, startSec, endSec) {
+    if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) return null;
+    const startWindow = startSec - 2;
+    const endWindow = endSec + 2;
+    let startIndex = -1;
+    let endIndex = -1;
+    points.forEach((point, index) => {
+        if (point.time < startWindow || point.time > endWindow) return;
+        if (startIndex < 0) startIndex = index;
+        endIndex = index;
+    });
+    return startIndex >= 0 && endIndex > startIndex ? [startIndex, endIndex] : null;
+}
+
+function analyzeNsmStreamsAgainstStructure(streams, run, input = {}, structureAnalysis = null) {
+    if (structureAnalysis?.source !== 'laps' || !Array.isArray(structureAnalysis.segments)) return null;
+    const points = buildNsmStreamPoints(streams);
+    if (points.length < 30) return null;
+    const structureSegments = structureAnalysis.segments.filter(segment => ['work', 'recovery'].includes(segment?.type));
+    const structureWorkCount = structureSegments.filter(segment => segment.type === 'work').length;
+    if (structureWorkCount < 2) return null;
+
+    const segments = [];
+    let workIndex = 0;
+    let recoveryIndex = 0;
+    structureSegments.forEach(segment => {
+        const range = getNsmPointRangeByTime(points, Number(segment.startSec), Number(segment.endSec));
+        if (!range) return;
+        const type = segment.type;
+        const nextIndex = type === 'work' ? workIndex + 1 : recoveryIndex + 1;
+        const pointSegment = getNsmPointSegment(points, range[0], range[1], type, nextIndex);
+        if (!pointSegment) return;
+        if (type === 'work') {
+            workIndex += 1;
+            segments.push({ ...pointSegment, index: workIndex });
+        } else if (pointSegment.duration >= 20) {
+            recoveryIndex += 1;
+            segments.push({ ...pointSegment, index: recoveryIndex });
+        }
+    });
+
+    const workCount = segments.filter(segment => segment.type === 'work').length;
+    if (workCount < 2) return null;
+    const hasHr = segments.some(segment => Number.isFinite(segment.avgHr));
+    const matchRatio = structureWorkCount ? workCount / structureWorkCount : 0;
+    let confidence = 'low';
+    if (hasHr && matchRatio >= 0.9) confidence = 'high';
+    else if (hasHr && matchRatio >= 0.6) confidence = 'medium';
+    const warnings = ['Streams HR aligned to existing laps structure.'];
+    if (!hasHr) warnings.push('No HR stream; pace/time-only stream overlay.');
+    if (workCount !== structureWorkCount) warnings.push(`Matched ${workCount}/${structureWorkCount} lap work reps to stream points.`);
+    return makeNsmIntervalAnalysis('streams', confidence, run, input, segments, warnings);
+}
+
+function detectNsmStreamWorkRanges(points, input = {}) {
+    const speeds = points.map(point => point.speed).filter(Number.isFinite);
+    const speedMedian = median(speeds);
+    if (!speedMedian) return [];
+    const template = getNsmTemplateDefinition(input);
+    const threshold = template
+        ? Math.max(speedMedian * 1.04, percentile(speeds, 0.60) || speedMedian)
+        : Math.max(speedMedian * 1.08, percentile(speeds, 0.70) || speedMedian);
+    const minWorkSec = template ? Math.max(60, template.workSec * 0.45) : 120;
+    const maxWorkSec = template ? template.workSec * 1.9 : 1800;
+    const rawRanges = [];
+    let start = null;
+    points.forEach((point, index) => {
+        if (point.speed >= threshold && start === null) start = index;
+        if ((point.speed < threshold || index === points.length - 1) && start !== null) {
+            const end = point.speed < threshold ? index - 1 : index;
+            rawRanges.push([start, end]);
+            start = null;
+        }
+    });
+
+    const merged = [];
+    rawRanges.forEach(range => {
+        const previous = merged[merged.length - 1];
+        if (previous && points[range[0]].time - points[previous[1]].time <= 25) previous[1] = range[1];
+        else merged.push([...range]);
+    });
+
+    let ranges = merged.filter(([startIndex, endIndex]) => {
+        const duration = points[endIndex].time - points[startIndex].time;
+        return duration >= minWorkSec && duration <= maxWorkSec;
+    });
+
+    if (template && ranges.length > template.reps) {
+        ranges = ranges
+            .map(range => {
+                const duration = points[range[1]].time - points[range[0]].time;
+                const avgSpeed = average(points.slice(range[0], range[1] + 1).map(point => point.speed));
+                const durationPenalty = Math.abs(duration - template.workSec) / template.workSec;
+                return { range, score: durationPenalty - ((avgSpeed || 0) / threshold) * 0.18 };
+            })
+            .sort((a, b) => a.score - b.score)
+            .slice(0, template.reps)
+            .map(item => item.range)
+            .sort((a, b) => a[0] - b[0]);
+    }
+
+    return ranges;
+}
+
+function analyzeNsmStreams(streams, run, input = {}) {
+    const points = buildNsmStreamPoints(streams);
+    if (points.length < 30) return null;
+    const workRanges = detectNsmStreamWorkRanges(points, input);
+    if (!workRanges.length) return null;
+    const segments = [];
+    workRanges.forEach((range, rangeIndex) => {
+        const work = getNsmPointSegment(points, range[0], range[1], 'work', rangeIndex + 1);
+        if (work) segments.push(work);
+        const nextRange = workRanges[rangeIndex + 1];
+        if (nextRange && nextRange[0] - range[1] > 3) {
+            const recovery = getNsmPointSegment(points, range[1] + 1, nextRange[0] - 1, 'recovery', rangeIndex + 1);
+            if (recovery && recovery.duration >= 30) segments.push(recovery);
+        }
+    });
+    const workCount = segments.filter(segment => segment.type === 'work').length;
+    if (workCount < 2) return null;
+    const template = getNsmTemplateDefinition(input);
+    if (template && workCount < Math.max(2, Math.ceil(template.reps * 0.5))) return null;
+    const hasHr = segments.some(segment => Number.isFinite(segment.avgHr));
+    let confidence = 'low';
+    if (hasHr && template) {
+        confidence = workCount === template.reps ? 'high' : Math.abs(workCount - template.reps) <= 1 ? 'medium' : 'low';
+    } else if (hasHr) {
+        confidence = workCount >= 4 ? 'high' : 'medium';
+    }
+    const warnings = [];
+    if (!hasHr) warnings.push('No HR stream; pace/time-only interval analysis.');
+    if (template && workCount !== template.reps) warnings.push(`Detected ${workCount}/${template.reps} expected reps from streams; structure is a fallback.`);
+    return makeNsmIntervalAnalysis('streams', confidence, run, input, segments, warnings);
+}
+
+function getNsmIntervalAnalysisForRow(run, activityId, input, tag) {
+    if (hasNsmManualWorkOverride(input)) return buildNsmManualIntervalAnalysis(run, input, tag);
+    const cached = getCachedNsmIntervalAnalysis(activityId, run);
+    if (cached) return cached;
+    return buildNsmActivityAverageAnalysis(run, input, tag);
+}
+
+function getDashboardHrMax() {
+    const settings = readJsonStorage('dashboard_settings', {});
+    const hrMax = Number(settings?.hrMax);
+    return Number.isFinite(hrMax) && hrMax >= 120 && hrMax <= 230 ? hrMax : null;
+}
+
+function estimateNsmHrMax(runs) {
+    const saved = getDashboardHrMax();
+    if (saved) return { value: saved, source: 'dashboard setting' };
+    const observed = Math.max(
+        0,
+        ...runs.map(run => Number(run.max_heartrate) || 0),
+        ...runs.map(run => Number(run.average_heartrate) || 0)
+    );
+    if (observed >= 120) return { value: observed, source: 'observed max HR' };
+    return { value: 190, source: 'default fallback' };
+}
+
+function runMinutes(run) {
+    return (Number(run?.moving_time) || 0) / 60;
+}
+
+function getWeekContext(runs) {
+    const byWeek = new Map();
+    runs.forEach(run => {
+        const week = weekStart(dateKey(run));
+        if (!week) return;
+        const entry = byWeek.get(week) || { week, runs: [], totalDistance: 0 };
+        entry.runs.push(run);
+        entry.totalDistance += km(run);
+        byWeek.set(week, entry);
+    });
+
+    byWeek.forEach(entry => {
+        entry.avgRunDistance = entry.runs.length ? entry.totalDistance / entry.runs.length : 0;
+        entry.longestRunKey = entry.runs.reduce((best, run) => km(run) > km(best || {}) ? run : best, null);
+    });
+    return byWeek;
+}
+
+function getAutoSubThresholdTag(run) {
+    const minutes = runMinutes(run);
+    const name = String(run?.name || '');
+    if (/120|long|30k|marathon|mp/i.test(name) || minutes >= 80) return 'subt_long';
+    if (/90|medium|6x|8x|hm|half/i.test(name) || minutes >= 55) return 'subt_medium';
+    return 'subt_short';
+}
+
+function classifyNsmRun(run, context) {
+    const activityId = getActivityKey(run);
+    const manual = normalizeNsmActivityTag(context.manualTags[activityId] || {});
+    if (manual.tag !== 'auto' || manual.includeInNsm === false) {
+        return {
+            tag: manual.includeInNsm === false ? 'excluded' : manual.tag,
+            autoTag: 'auto',
+            manualTag: manual.tag,
+            includeInNsm: manual.includeInNsm !== false,
+            source: 'manual'
+        };
+    }
+
+    const name = String(run?.name || '');
+    const distanceKm = km(run);
+    const week = weekStart(dateKey(run));
+    const weekInfo = context.weekContext.get(week);
+    const isLongestThisWeek = weekInfo?.longestRunKey && getActivityKey(weekInfo.longestRunKey) === activityId;
+    const longByShape = distanceKm >= 16 || (isLongestThisWeek && distanceKm >= Math.max(12, (weekInfo?.avgRunDistance || 0) * 1.45));
+    const avgHr = Number(run.average_heartrate);
+    const easyByHr = Number.isFinite(avgHr) && avgHr > 0 && avgHr <= context.easyHrCap + 3;
+    const classified = typeof window !== 'undefined' && typeof window.classifyRun === 'function'
+        ? window.classifyRun(run, run.streams || {})
+        : null;
+    const classifierLabel = classified?.type || classified?.label || classified?.bestType || '';
+
+    let autoTag = 'other';
+    if (RACE_NAME_RE.test(name) || NSM_RACE_TEST_RE.test(name) || run.workout_type === 1) autoTag = 'race_test';
+    else if (NSM_THRESHOLD_RE.test(name) || (run.workout_type === 3 && Number.isFinite(avgHr) && avgHr >= context.easyHrCap && avgHr <= context.thresholdHrCap + 5)) autoTag = getAutoSubThresholdTag(run);
+    else if (NSM_LONG_RE.test(name) || run.workout_type === 2 || longByShape) autoTag = 'long';
+    else if (NSM_EASY_RE.test(name) || /Easy\/Recovery/i.test(classifierLabel) || easyByHr) autoTag = 'easy';
+
+    return { tag: autoTag, autoTag, manualTag: 'auto', includeInNsm: true, source: 'auto' };
+}
+
+function summarizePeriod(rows, startDate, endDate) {
+    const scoped = rows.filter(row => row.date >= startDate && row.date <= endDate && row.includeInNsm);
+    const totalMinutes = sum(scoped.map(row => row.minutes));
+    const subThresholdMinutes = sum(scoped.filter(row => row.isSubThreshold).map(row => row.subThresholdWorkMinutes ?? row.minutes));
+    const easyRuns = scoped.filter(row => row.isEasy);
+    return {
+        runs: scoped.length,
+        totalMinutes,
+        totalDistance: sum(scoped.map(row => row.distanceKm)),
+        subThresholdSessions: scoped.filter(row => row.isSubThreshold).length,
+        subThresholdMinutes,
+        subThresholdShare: totalMinutes > 0 ? subThresholdMinutes / totalMinutes : 0,
+        easyRuns: easyRuns.length,
+        easyOverCap: easyRuns.filter(row => row.easyOverCap).length,
+        longRuns: scoped.filter(row => row.isLong).length
+    };
+}
+
+function scoreNsmWeek(weekRows, weekStartDate) {
+    const included = weekRows.filter(row => row.includeInNsm);
+    const totalMinutes = sum(included.map(row => row.minutes));
+    const subThreshold = included.filter(row => row.isSubThreshold);
+    const easy = included.filter(row => row.isEasy);
+    const longRuns = included.filter(row => row.isLong);
+    const subThresholdMinutes = sum(subThreshold.map(row => row.subThresholdWorkMinutes ?? row.minutes));
+    const subThresholdShare = totalMinutes > 0 ? subThresholdMinutes / totalMinutes : 0;
+    const easyOverCap = easy.filter(row => row.easyOverCap).length;
+    const easyDiscipline = easy.length ? 1 - (easyOverCap / easy.length) : 0;
+    const target = NSM_WEEKLY_TARGETS;
+    const shareMid = (target.subThresholdShareLow + target.subThresholdShareHigh) / 2;
+    const shareDistance = Math.abs(subThresholdShare - shareMid);
+    const shareScore = totalMinutes > 0 ? clamp(1 - (shareDistance / 0.18), 0, 1) : 0;
+    const score = Math.round(
+        clamp(subThreshold.length / target.subThresholdSessions, 0, 1) * 30
+        + clamp(easy.length / target.easySessions, 0, 1) * 25
+        + clamp(longRuns.length / target.longRuns, 0, 1) * 20
+        + shareScore * 15
+        + easyDiscipline * 10
+    );
+
+    let label = 'Needs structure';
+    if (score >= 82) label = 'NSM aligned';
+    else if (score >= 65) label = 'Close';
+    else if (score >= 45) label = 'Partial';
+
+    return {
+        week: weekStartDate,
+        score,
+        label,
+        runCount: included.length,
+        totalMinutes,
+        totalDistance: sum(included.map(row => row.distanceKm)),
+        subThresholdSessions: subThreshold.length,
+        subThresholdMinutes,
+        subThresholdShare,
+        easySessions: easy.length,
+        easyOverCap,
+        easyDiscipline,
+        longRuns: longRuns.length,
+        raceTests: included.filter(row => row.isRaceTest).length
+    };
+}
+
+function buildNsmEasyDiscipline(easyRows, easyHrCap, hrMaxValue) {
+    const validHrRows = easyRows
+        .filter(row => Number.isFinite(row.avgHr) && row.avgHr > 0)
+        .map(row => ({
+            activityId: row.activityId,
+            date: row.date,
+            week: row.week,
+            name: row.name,
+            distanceKm: row.distanceKm,
+            pace: row.pace,
+            avgHr: row.avgHr,
+            easyHrMargin: row.avgHr - easyHrCap,
+            easyHrPctMax: hrMaxValue > 0 ? row.avgHr / hrMaxValue : null,
+            easyOverCap: row.easyOverCap
+        }));
+    const hrPcts = validHrRows.map(row => row.easyHrPctMax).filter(Number.isFinite);
+    const paces = easyRows.map(row => row.pace).filter(Number.isFinite);
+    const weeklyMap = new Map();
+    easyRows.forEach(row => {
+        if (!row.week) return;
+        const entry = weeklyMap.get(row.week) || { week: row.week, total: 0, underCap: 0, overCap: 0, unknownHr: 0 };
+        entry.total += 1;
+        if (!Number.isFinite(row.avgHr) || row.avgHr <= 0) entry.unknownHr += 1;
+        else if (row.easyOverCap) entry.overCap += 1;
+        else entry.underCap += 1;
+        weeklyMap.set(row.week, entry);
+    });
+
+    return {
+        runs: easyRows.length,
+        overCap: easyRows.filter(row => row.easyOverCap).length,
+        overCapRate: easyRows.length ? easyRows.filter(row => row.easyOverCap).length / easyRows.length : null,
+        capBpm: easyHrCap,
+        hrValidRuns: validHrRows.length,
+        avgHr: average(validHrRows.map(row => row.avgHr)),
+        avgHrPctMax: hrMaxValue > 0 ? average(validHrRows.map(row => row.avgHr / hrMaxValue)) : null,
+        hrPctP25: percentile(hrPcts, 0.25),
+        hrPctP50: percentile(hrPcts, 0.50),
+        hrPctP75: percentile(hrPcts, 0.75),
+        medianPace: median(paces),
+        chartRows: validHrRows,
+        weeklyCompliance: [...weeklyMap.values()].sort((a, b) => a.week.localeCompare(b.week))
+    };
+}
+
+function estimateTimedRacePace(anchor, minutes) {
+    if (!anchor || !Number.isFinite(anchor.timeSec) || !Number.isFinite(anchor.distanceKm)) return null;
+    const targetSeconds = minutes * 60;
+    const estimatedDistance = anchor.distanceKm * Math.pow(targetSeconds / anchor.timeSec, 1 / 1.06);
+    return estimatedDistance > 0 ? targetSeconds / estimatedDistance : null;
+}
+
+function buildNsmSubThresholdControl(intervalAnalysis, intervalSummary = {}, input = {}, thresholdHrCap = null, isSubThreshold = false, avgHr = null) {
+    if (!isSubThreshold) {
+        return { status: 'controlled', flags: [], watchFlags: [], proxyOnly: false };
+    }
+
+    const source = intervalAnalysis?.source || 'activity_average';
+    const hrOverlay = getNsmHrOverlay(intervalAnalysis);
+    const hasStreamsHr = hrOverlay?.source === 'streams' && hrOverlay.hrConfidence === 'high';
+    const flags = [];
+    const watchFlags = [];
+    const subjectiveFlags = [];
+    const paceCv = Number.isFinite(intervalSummary.paceCv) ? intervalSummary.paceCv : null;
+    const paceFadePct = Number.isFinite(intervalSummary.paceFadePct) ? intervalSummary.paceFadePct : null;
+    const hrResponse = Number.isFinite(hrOverlay?.hrResponse) ? hrOverlay.hrResponse : null;
+    const lateHrMetric = Number.isFinite(hrOverlay?.lateHrMetric) ? hrOverlay.lateHrMetric : null;
+    const lateEndHr = Number.isFinite(hrOverlay?.lateEndHr) ? hrOverlay.lateEndHr : null;
+    const lateSurge = Number.isFinite(hrOverlay?.lateSurge) ? hrOverlay.lateSurge : null;
+    const lateHrForCap = Math.max(
+        Number.isFinite(lateHrMetric) ? lateHrMetric : -Infinity,
+        Number.isFinite(lateEndHr) ? lateEndHr : -Infinity
+    );
+
+    const paceUneven = Number.isFinite(paceCv) && paceCv > 0.06;
+    if (paceUneven) watchFlags.push('pace CV high');
+    const paceFade = Number.isFinite(paceFadePct) && paceFadePct > 0.035;
+    if (paceFade) watchFlags.push('pace fade');
+
+    if (Number.isFinite(input.nextDayScore) && input.nextDayScore >= 6) subjectiveFlags.push('next-day response high');
+    if (Number.isFinite(input.rpe) && input.rpe >= 8) subjectiveFlags.push('RPE high');
+    if (Number.isFinite(input.lactate) && input.lactate >= 4) subjectiveFlags.push('lactate high');
+    if (Number.isFinite(input.painScore) && input.painScore >= 5) subjectiveFlags.push('pain high');
+
+    let thresholdRisk = false;
+    let hrRiseRisk = false;
+    let lateSurgeRisk = false;
+    if (hasStreamsHr) {
+        thresholdRisk = Number.isFinite(thresholdHrCap) && Number.isFinite(lateHrForCap) && lateHrForCap > thresholdHrCap;
+        hrRiseRisk = Number.isFinite(hrResponse) && hrResponse >= 6;
+        lateSurgeRisk = Number.isFinite(lateSurge) && lateSurge >= 4;
+        if (thresholdRisk) flags.push('late HR above threshold cap');
+        if (hrRiseRisk) watchFlags.push('HR response high');
+        if (lateSurgeRisk) watchFlags.push('late HR still rising');
+    } else if (!intervalAnalysis && Number.isFinite(avgHr) && Number.isFinite(thresholdHrCap) && avgHr > thresholdHrCap) {
+        watchFlags.push('activity HR proxy above cap');
+    }
+
+    subjectiveFlags.forEach(flag => watchFlags.push(flag));
+    const combinedFlags = [...new Set([...flags, ...watchFlags])];
+    const riskSignalCount = [
+        thresholdRisk,
+        hrRiseRisk,
+        lateSurgeRisk,
+        paceUneven,
+        paceFade,
+        ...subjectiveFlags.map(() => true)
+    ].filter(Boolean).length;
+    const overcooked = (thresholdRisk && riskSignalCount >= 2)
+        || (hasStreamsHr && paceFade && hrRiseRisk)
+        || subjectiveFlags.length >= 2
+        || (subjectiveFlags.length >= 1 && (paceUneven || hrRiseRisk || thresholdRisk));
+
+    if (overcooked) return { status: 'overcooked', flags: combinedFlags, watchFlags, proxyOnly: false };
+    if (combinedFlags.length) return { status: 'watch', flags: combinedFlags, watchFlags, proxyOnly: false };
+
+    const proxyOnly = !hasStreamsHr;
+    return {
+        status: proxyOnly ? 'proxy_only' : 'controlled',
+        flags: proxyOnly ? ['HR proxy only'] : [],
+        watchFlags: [],
+        proxyOnly
+    };
+}
+
+function buildNsmModel(model) {
+    const settings = readNsmSettings();
+    const manualTags = readNsmActivityTags();
+    const sessionInputs = readNsmSessionInputs();
+    const tests = readNsmTests().sort((a, b) => b.date.localeCompare(a.date));
+    const hrMax = estimateNsmHrMax(model.runs);
+    const easyHrCap = hrMax.value * settings.easyHrCapPct / 100;
+    const thresholdHrCap = hrMax.value * settings.thresholdHrPct / 100;
+    const weekContext = getWeekContext(model.runs);
+    const context = { manualTags, weekContext, easyHrCap, thresholdHrCap };
+
+    const rows = model.runs.map(run => {
+        const activityId = getActivityKey(run);
+        const classification = classifyNsmRun(run, context);
+        const input = normalizeNsmSessionInput(sessionInputs[activityId] || {});
+        const avgHr = Number(run.average_heartrate);
+        const tag = classification.tag;
+        const isSubThreshold = NSM_SUBT_TAGS.has(tag);
+        const isEasy = tag === 'easy';
+        const isLong = tag === 'long';
+        const isRaceTest = tag === 'race_test';
+        const easyOverCap = isEasy && Number.isFinite(avgHr) && avgHr > easyHrCap;
+        const intervalAnalysis = isSubThreshold
+            ? getNsmIntervalAnalysisForRow(run, activityId, input, tag)
+            : null;
+        const intervalSummary = intervalAnalysis?.summary || {};
+        const hrOverlay = getNsmHrOverlay(intervalAnalysis);
+        const subThresholdWorkMinutes = isSubThreshold
+            ? (Number(intervalSummary.workMinutes) || estimateNsmFallbackWorkMinutes(run, tag, input))
+            : 0;
+        const control = buildNsmSubThresholdControl(intervalAnalysis, intervalSummary, input, thresholdHrCap, isSubThreshold, avgHr);
+        const confidence = classification.source === 'manual'
+            ? 'high'
+            : isSubThreshold && intervalAnalysis
+                ? intervalAnalysis.confidence
+            : Number.isFinite(avgHr) && avgHr > 0
+                ? 'medium'
+                : 'low';
+        return {
+            activityId,
+            run,
+            date: dateKey(run),
+            week: weekStart(dateKey(run)),
+            name: run.name || 'Run',
+            distanceKm: km(run),
+            minutes: runMinutes(run),
+            pace: paceSec(run),
+            avgHr,
+            easyHrMargin: isEasy && Number.isFinite(avgHr) ? avgHr - easyHrCap : null,
+            easyHrPctMax: isEasy && Number.isFinite(avgHr) && hrMax.value > 0 ? avgHr / hrMax.value : null,
+            subThresholdWorkMinutes,
+            tag,
+            autoTag: classification.autoTag,
+            manualTag: classification.manualTag,
+            includeInNsm: classification.includeInNsm,
+            source: classification.source,
+            confidence,
+            input,
+            intervalAnalysis,
+            hrOverlay,
+            isSubThreshold,
+            isEasy,
+            isLong,
+            isRaceTest,
+            easyOverCap,
+            controlStatus: control.status,
+            controlFlags: control.flags,
+            overcookFlags: control.status === 'proxy_only' ? [] : control.flags
+        };
+    }).sort((a, b) => b.date.localeCompare(a.date));
+
+    const weeklyMap = new Map();
+    rows.forEach(row => {
+        if (!row.week) return;
+        weeklyMap.set(row.week, [...(weeklyMap.get(row.week) || []), row]);
+    });
+    const weekly = [...weeklyMap.entries()]
+        .map(([week, weekRows]) => scoreNsmWeek(weekRows, week))
+        .sort((a, b) => a.week.localeCompare(b.week));
+
+    const lastDate = model.dateRange.end && model.dateRange.end !== '-' ? model.dateRange.end : rows[0]?.date;
+    const recent7Start = lastDate ? addDays(lastDate, -6) : null;
+    const recent28Start = lastDate ? addDays(lastDate, -27) : null;
+    const blockStart = settings.currentBlockStart || model.dateRange.start;
+    const blockEnd = settings.currentBlockEnd || model.dateRange.end;
+    const recent7 = recent7Start && lastDate ? summarizePeriod(rows, recent7Start, lastDate) : summarizePeriod([], '', '');
+    const recent28 = recent28Start && lastDate ? summarizePeriod(rows, recent28Start, lastDate) : summarizePeriod([], '', '');
+    const block = blockStart && blockEnd && blockStart !== '-' && blockEnd !== '-' ? summarizePeriod(rows, blockStart, blockEnd) : summarizePeriod(rows, '', '9999-12-31');
+    const latestWeek = weekly[weekly.length - 1] || null;
+    const easyRows = rows.filter(row => row.includeInNsm && row.isEasy);
+    const subThresholdRows = rows.filter(row => row.includeInNsm && row.isSubThreshold);
+    const overcookedSubThreshold = subThresholdRows.filter(row => row.controlStatus === 'overcooked');
+    const easyDiscipline = buildNsmEasyDiscipline(easyRows, easyHrCap, hrMax.value);
+    const raceAnchors = [
+        ...tests,
+        ...model.raceLike.slice(0, 8).map(run => ({
+            id: `activity-${getActivityKey(run)}`,
+            date: dateKey(run),
+            type: 'Activity',
+            distanceKm: km(run),
+            timeSec: Number(run.moving_time) || 0,
+            sourceActivityId: getActivityKey(run),
+            notes: run.name || 'Race-like activity'
+        }))
+    ].filter(anchor => Number.isFinite(anchor.distanceKm) && Number.isFinite(anchor.timeSec) && anchor.distanceKm > 0 && anchor.timeSec > 0)
+        .sort((a, b) => b.date.localeCompare(a.date));
+    const primaryAnchor = raceAnchors[0] || null;
+    const timedAnchors = [60, 90, 120].map(minutes => ({
+        minutes,
+        paceSec: estimateTimedRacePace(primaryAnchor, minutes)
+    }));
+
+    const recommendations = [];
+    if (model.diagnostics.tissueLoad.status.level === 'risk') recommendations.push('Reduce impact load before adding another NSM quality session.');
+    if (recent7.subThresholdShare > NSM_WEEKLY_TARGETS.subThresholdShareHigh + 0.05) recommendations.push('Sub-threshold share is high; protect easy volume and recovery.');
+    if (easyRows.length && easyRows.filter(row => row.easyOverCap).length / easyRows.length > 0.25) recommendations.push('Easy days are drifting above the easy HR cap.');
+    if (overcookedSubThreshold.length) recommendations.push('Review overcooked sub-threshold sessions before raising pace anchors.');
+    if (latestWeek && latestWeek.subThresholdSessions < 2) recommendations.push('Add repeatable sub-threshold exposure only if easy discipline and tissue load are stable.');
+    if (!recommendations.length) recommendations.push('Hold the current NSM rhythm and use the next TT/race to update pace anchors.');
+
+    return {
+        settings,
+        hrMax,
+        easyHrCap,
+        thresholdHrCap,
+        rows,
+        weekly,
+        latestWeek,
+        recent7,
+        recent28,
+        block,
+        easyDiscipline,
+        subThreshold: {
+            sessions: subThresholdRows.length,
+            overcooked: overcookedSubThreshold.length,
+            rows: subThresholdRows,
+            share: block.totalMinutes > 0 ? block.subThresholdMinutes / block.totalMinutes : 0
+        },
+        tests,
+        raceAnchors,
+        primaryAnchor,
+        timedAnchors,
+        recommendations,
+        dataTrust: {
+            hrCoverage: model.runs.length ? model.hrRuns.length / model.runs.length : 0,
+            manualTagged: rows.filter(row => row.source === 'manual').length,
+            intervalAnalyzed: subThresholdRows.filter(row => ['laps', 'streams'].includes(row.intervalAnalysis?.source)).length,
+            totalRows: rows.length
+        }
     };
 }
 
@@ -1065,7 +2540,7 @@ function confidenceClass(score) {
 function pillClassForConfidence(confidence) {
     if (confidence === 'high') return 'run-plus-pill--good';
     if (confidence === 'medium') return 'run-plus-pill--warn';
-    if (confidence === 'missing') return 'run-plus-pill--muted';
+    if (confidence === 'missing' || confidence === 'proxy' || confidence === 'unavailable') return 'run-plus-pill--muted';
     return 'run-plus-pill--risk';
 }
 
@@ -1320,6 +2795,600 @@ function renderStatCards(model) {
                 <small>Weekly x3, next needs ${model.weeklyE3.nextNeed}</small>
             </div>
         </div>
+    `;
+}
+
+function getRunPlusSubview() {
+    const path = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '/run-plus';
+    return path === '/run-plus/nsm' ? 'nsm' : 'overview';
+}
+
+function renderRunPlusSubviewNav(activeSubview) {
+    const items = [
+        ['overview', 'Overview', '/run-plus'],
+        ['nsm', 'NSM', '/run-plus/nsm']
+    ];
+    return `
+        <nav class="run-plus-subnav" aria-label="Run Plus views">
+            ${items.map(([key, label, href]) => `
+                <button class="run-plus-subnav__item ${activeSubview === key ? 'active' : ''}" data-run-plus-subview="${key}" data-href="${href}" type="button">
+                    ${esc(label)}
+                </button>
+            `).join('')}
+        </nav>
+    `;
+}
+
+function formatNsmHours(minutes) {
+    const value = Number(minutes) || 0;
+    if (value > 0 && value < 6) return `${Math.round(value)} min`;
+    return `${(value / 60).toFixed(1)} h`;
+}
+
+function formatNsmDistance(kilometers) {
+    return `${safeFixed(kilometers, 1)} km`;
+}
+
+function nsmTagLabel(tag) {
+    return (NSM_TAG_OPTIONS.find(option => option[0] === tag) || ['other', 'Other'])[1];
+}
+
+function nsmTemplateLabel(template) {
+    return (NSM_TEMPLATE_OPTIONS.find(option => option[0] === template) || ['auto', 'Auto'])[1];
+}
+
+function nsmIntervalSourceLabel(source) {
+    if (source === 'manual') return 'Manual';
+    if (source === 'laps') return 'Laps';
+    if (source === 'streams') return 'Streams structure';
+    return 'Activity avg';
+}
+
+function nsmTagPillClass(tag) {
+    if (NSM_SUBT_TAGS.has(tag)) return 'run-plus-pill--warn';
+    if (tag === 'easy') return 'run-plus-pill--good';
+    if (tag === 'long' || tag === 'race_test') return 'run-plus-pill--muted';
+    if (tag === 'excluded') return 'run-plus-pill--risk';
+    return 'run-plus-pill--muted';
+}
+
+function nsmScorePillClass(score) {
+    if (score >= 82) return 'run-plus-pill--good';
+    if (score >= 55) return 'run-plus-pill--warn';
+    return 'run-plus-pill--risk';
+}
+
+function nsmIntervalSourcePillClass(source) {
+    if (source === 'laps' || source === 'streams') return 'run-plus-pill--good';
+    if (source === 'manual') return 'run-plus-pill--warn';
+    return 'run-plus-pill--muted';
+}
+
+function nsmControlLabel(status) {
+    if (status === 'overcooked') return 'overcooked';
+    if (status === 'watch') return 'watch';
+    if (status === 'proxy_only') return 'proxy only';
+    return 'controlled';
+}
+
+function nsmControlPillClass(status) {
+    if (status === 'overcooked') return 'run-plus-pill--risk';
+    if (status === 'watch') return 'run-plus-pill--warn';
+    if (status === 'proxy_only') return 'run-plus-pill--muted';
+    return 'run-plus-pill--good';
+}
+
+function getNsmRowHrOverlay(row) {
+    return row?.hrOverlay || getNsmHrOverlay(row?.intervalAnalysis);
+}
+
+function formatNsmHrSource(row) {
+    if (!row?.isSubThreshold) {
+        return Number.isFinite(row?.avgHr) ? 'Activity HR' : 'No HR';
+    }
+    const overlay = getNsmRowHrOverlay(row);
+    if (overlay?.source === 'streams') {
+        return overlay.hrConfidence === 'high' ? 'streams HR' : `streams HR ${overlay.hrConfidence}`;
+    }
+    if (row?.intervalAnalysis?.source === 'manual') return 'manual proxy';
+    return 'needs streams';
+}
+
+function formatNsmHrResponse(row) {
+    const overlay = getNsmRowHrOverlay(row);
+    if (overlay?.source === 'streams') {
+        return Number.isFinite(overlay.hrResponse) ? `${formatSigned(overlay.hrResponse, 1)} bpm` : 'unavailable';
+    }
+    return 'needs streams';
+}
+
+function formatNsmHrMetric(row) {
+    const overlay = getNsmRowHrOverlay(row);
+    if (overlay?.source !== 'streams') return 'needs streams';
+    if (!overlay.hrMetricUsed) return 'unavailable';
+    const range = overlay.earlyRepRange && overlay.lateRepRange
+        ? ` · reps ${overlay.earlyRepRange}→${overlay.lateRepRange}`
+        : '';
+    return `${overlay.hrMetricUsed}${range}`;
+}
+
+function formatNsmRecoveryDrop(row) {
+    const overlay = getNsmRowHrOverlay(row);
+    if (overlay?.source !== 'streams') return 'needs streams';
+    const value = overlay.recoveryHrDrop;
+    return Number.isFinite(value) ? `${value.toFixed(1)} bpm` : '-';
+}
+
+function formatNsmCombinedIntervalSource(row) {
+    const structureSource = nsmIntervalSourceLabel(row?.intervalAnalysis?.source);
+    const overlay = getNsmRowHrOverlay(row);
+    if (overlay?.source === 'streams' && row?.intervalAnalysis?.source !== 'streams') return `${structureSource} / HR streams`;
+    return structureSource;
+}
+
+function hasNsmNoUsableLapsWarning(row) {
+    return row?.intervalAnalysis?.warnings?.some(warning => /No usable laps/i.test(warning));
+}
+
+function renderNsmRegistryAnalysisCell(row) {
+    if (!row.isSubThreshold) {
+        const hasHr = Number.isFinite(row.avgHr);
+        return `
+            <div class="run-plus-nsm-analysis-cell">
+                <span class="run-plus-pill ${hasHr ? 'run-plus-pill--good' : 'run-plus-pill--muted'}">${hasHr ? 'Activity HR' : 'No HR'}</span>
+                ${hasHr ? `<span class="run-plus-pill run-plus-pill--muted">${Math.round(row.avgHr)} bpm</span>` : ''}
+                <span class="run-plus-pill run-plus-pill--muted">Not interval</span>
+            </div>
+        `;
+    }
+
+    const overlay = getNsmRowHrOverlay(row);
+    const hrConfidence = overlay?.hrConfidence || 'unavailable';
+    return `
+        <div class="run-plus-nsm-analysis-cell">
+            <span class="run-plus-pill ${nsmIntervalSourcePillClass(row.intervalAnalysis?.source)}">${esc(nsmIntervalSourceLabel(row.intervalAnalysis?.source))}</span>
+            <span class="run-plus-pill ${pillClassForConfidence(row.intervalAnalysis?.confidence || row.confidence)}">${esc(row.intervalAnalysis?.confidence || row.confidence)}</span>
+            <span class="run-plus-pill ${pillClassForConfidence(hrConfidence)}">HR ${esc(hrConfidence)}</span>
+            ${hasNsmNoUsableLapsWarning(row) ? '<span class="run-plus-pill run-plus-pill--muted">No usable laps</span>' : ''}
+            ${row.run?.id ? `<button type="button" class="run-plus-nsm-link-button" data-nsm-analyze-intervals="${esc(row.activityId)}">Analyze intervals</button>` : ''}
+            ${row.run?.id ? `<button type="button" class="run-plus-nsm-link-button" data-nsm-analyze-streams="${esc(row.activityId)}">Deep HR analysis</button>` : ''}
+        </div>
+    `;
+}
+
+function renderNsmMetric(label, value, detail, level = 'muted') {
+    return `
+        <article class="run-plus-nsm-metric run-plus-tissue-card--${esc(level)}">
+            <span>${esc(label)}</span>
+            <strong>${esc(value)}</strong>
+            <small>${esc(detail)}</small>
+        </article>
+    `;
+}
+
+function renderNsmSettingsForm(nsm) {
+    return `
+        <form class="run-plus-nsm-settings" id="${runPlusId('nsm-settings-form')}">
+            <label>
+                <span>Easy HR cap (%)</span>
+                <input name="easyHrCapPct" type="number" min="50" max="85" step="1" value="${esc(nsm.settings.easyHrCapPct)}">
+            </label>
+            <label>
+                <span>Threshold HR cap (%)</span>
+                <input name="thresholdHrPct" type="number" min="75" max="95" step="1" value="${esc(nsm.settings.thresholdHrPct)}">
+            </label>
+            <label>
+                <span>Block start</span>
+                <input name="currentBlockStart" type="date" value="${esc(nsm.settings.currentBlockStart)}">
+            </label>
+            <label>
+                <span>Block end</span>
+                <input name="currentBlockEnd" type="date" value="${esc(nsm.settings.currentBlockEnd)}">
+            </label>
+            <label>
+                <span>Target race</span>
+                <input name="targetRace" type="text" maxlength="80" value="${esc(nsm.settings.targetRace)}" placeholder="Optional">
+            </label>
+            <label>
+                <span>Template</span>
+                <select name="weeklyTemplate">
+                    <option value="standard" ${nsm.settings.weeklyTemplate === 'standard' ? 'selected' : ''}>Standard</option>
+                    <option value="intro" ${nsm.settings.weeklyTemplate === 'intro' ? 'selected' : ''}>Intro</option>
+                    <option value="marathon" ${nsm.settings.weeklyTemplate === 'marathon' ? 'selected' : ''}>Marathon</option>
+                </select>
+            </label>
+            <div class="run-plus-nsm-actions">
+                <button type="submit">Save settings</button>
+                <button type="button" id="${runPlusId('nsm-settings-reset')}">Reset</button>
+            </div>
+        </form>
+    `;
+}
+
+function renderNsmCommandCenter(model) {
+    const nsm = model.nsm;
+    const latestScore = nsm.latestWeek?.score ?? 0;
+    const latestLevel = latestScore >= 82 ? 'good' : latestScore >= 55 ? 'warn' : 'risk';
+    const easyLevel = nsm.easyDiscipline.overCapRate == null ? 'muted' : nsm.easyDiscipline.overCapRate <= 0.12 ? 'good' : nsm.easyDiscipline.overCapRate <= 0.25 ? 'warn' : 'risk';
+    const subTLevel = nsm.recent7.subThresholdShare <= NSM_WEEKLY_TARGETS.subThresholdShareHigh + 0.05 ? 'good' : 'warn';
+    const tissueLevel = model.diagnostics.tissueLoad.status.level;
+
+    return `
+        <section class="run-plus-nsm-hero">
+            <div class="run-plus-overview-main">
+                <span class="run-plus-kicker">Run Plus · Norwegian Singles Method</span>
+                <h2>NSM Training Control</h2>
+                <p>Tracks whether the active run history is matching a repeatable sub-threshold rhythm: controlled quality work, truly easy recovery, sustainable impact load, and measurable progress.</p>
+                <div class="run-plus-overview-tags">
+                    <span class="run-plus-pill ${nsmScorePillClass(latestScore)}">Weekly score ${latestScore}/100</span>
+                    <span class="run-plus-pill ${pillClassForImpactLevel(tissueLevel)}">${esc(model.diagnostics.tissueLoad.status.label)}</span>
+                    <span class="run-plus-pill ${pillClassForConfidence(model.diagnostics.aerobicEfficiency.confidence)}">HR coverage ${percentLabel(nsm.dataTrust.hrCoverage)}</span>
+                    <span class="run-plus-pill run-plus-pill--muted">HRmax ${Math.round(nsm.hrMax.value)} bpm · ${esc(nsm.hrMax.source)}</span>
+                </div>
+            </div>
+            <div class="run-plus-nsm-command-grid">
+                ${renderNsmMetric('Recent 7 days', `${nsm.recent7.subThresholdSessions} SubT / ${nsm.recent7.easyRuns} easy`, `${formatNsmDistance(nsm.recent7.totalDistance)} · work share ${percentLabel(nsm.recent7.subThresholdShare)}`, subTLevel)}
+                ${renderNsmMetric('Recent 28 days', `${formatNsmHours(nsm.recent28.subThresholdMinutes)} SubT work`, `${nsm.recent28.longRuns} long runs · ${formatNsmHours(nsm.recent28.totalMinutes)} total`, 'muted')}
+                ${renderNsmMetric('Current block', `${percentLabel(nsm.block.subThresholdShare)} quality`, `${formatNsmDistance(nsm.block.totalDistance)} · ${nsm.block.runs} runs`, nsm.block.subThresholdShare <= 0.30 ? 'good' : 'warn')}
+                ${renderNsmMetric('Easy discipline', nsm.easyDiscipline.overCapRate == null ? '-' : `${percentLabel(nsm.easyDiscipline.overCapRate)} over cap`, `Cap ${Math.round(nsm.easyDiscipline.capBpm)} bpm · ${nsm.easyDiscipline.runs} easy runs`, easyLevel)}
+                ${renderNsmMetric('SubT control', `${nsm.subThreshold.overcooked} overcooked`, `${nsm.dataTrust.intervalAnalyzed}/${nsm.subThreshold.sessions} parsed from laps/streams`, nsm.subThreshold.overcooked ? 'warn' : 'good')}
+                ${renderNsmMetric('Primary focus', nsm.recommendations[0], 'Rule-based read from NSM structure, HR, progress, and tissue load.', tissueLevel)}
+            </div>
+            <details class="run-plus-nsm-config">
+                <summary>NSM local settings</summary>
+                ${renderNsmSettingsForm(nsm)}
+            </details>
+        </section>
+    `;
+}
+
+function renderNsmWeeklyScore(model) {
+    const rows = model.nsm.weekly.slice(-16).reverse();
+    return `
+        <section class="run-plus-module run-plus-module--wide">
+            <div class="run-plus-module-panel">
+                <h3>Weekly Method Score</h3>
+                <p class="run-plus-chart-caption">Quality share uses parsed SubT work minutes when available. Activity-average rows are low-confidence proxies and no longer count the full workout as threshold work.</p>
+                <div class="run-plus-table-wrap">
+                    <table class="compact-table run-plus-nsm-table">
+                        <thead>
+                            <tr>
+                                <th>Week</th><th>Score</th><th>Total hours</th><th>SubT</th><th>SubT work</th><th>Easy</th><th>Long</th><th>Quality share</th><th>Easy cap</th><th>Volume</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(row => `
+                                <tr>
+                                    <td>${esc(row.week)}</td>
+                                    <td><span class="run-plus-pill ${nsmScorePillClass(row.score)}">${row.score} · ${esc(row.label)}</span></td>
+                                    <td>${formatNsmHours(row.totalMinutes)}</td>
+                                    <td>${row.subThresholdSessions}</td>
+                                    <td>${formatNsmHours(row.subThresholdMinutes)}</td>
+                                    <td>${row.easySessions}</td>
+                                    <td>${row.longRuns}</td>
+                                    <td>${percentLabel(row.subThresholdShare)}</td>
+                                    <td>${row.easySessions ? `${row.easyOverCap}/${row.easySessions} over` : '-'}</td>
+                                    <td>${formatNsmDistance(row.totalDistance)}</td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="10">No weekly runs in the active filter.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function renderNsmSubthresholdWorkbench(model) {
+    const rows = model.nsm.subThreshold.rows.slice(0, 24);
+    return `
+        <section class="run-plus-module run-plus-module--wide">
+            <div class="run-plus-module-panel">
+                <h3>Subthreshold Workbench</h3>
+                <p class="run-plus-chart-caption">SubT rows prioritize work-rep metrics: Manual override, then Strava laps, then on-demand streams, then activity-average proxy.</p>
+                <div class="run-plus-table-wrap">
+                    <table class="compact-table run-plus-nsm-table">
+                        <thead>
+                            <tr><th>Date</th><th>Activity</th><th>Type</th><th>Source</th><th>Work</th><th>Work pace</th><th>Work HR</th><th>Pace consistency</th><th>HR source</th><th>RPE</th><th>Lactate</th><th>Control</th></tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(row => `
+                                <tr>
+                                    <td>${esc(row.date)}</td>
+                                    <td>${row.run?.id ? `<a href="/html/activity-router.html?id=${encodeURIComponent(row.run.id)}" target="_blank" rel="noopener noreferrer">${esc(row.name)}</a>` : esc(row.name)}</td>
+                                    <td><span class="run-plus-pill ${nsmTagPillClass(row.tag)}">${esc(nsmTagLabel(row.tag))}</span></td>
+                                    <td>
+                                        <span class="run-plus-pill ${nsmIntervalSourcePillClass(row.intervalAnalysis?.source)}">${esc(formatNsmCombinedIntervalSource(row))}</span>
+                                        <span class="run-plus-pill ${pillClassForConfidence(row.intervalAnalysis?.confidence || row.confidence)}">${esc(row.intervalAnalysis?.confidence || row.confidence)}</span>
+                                    </td>
+                                    <td>${formatNsmHours(row.subThresholdWorkMinutes)}</td>
+                                    <td>${row.intervalAnalysis?.summary?.avgWorkPaceSec ? paceLabel(row.intervalAnalysis.summary.avgWorkPaceSec) : paceLabel(row.pace)}</td>
+                                    <td>${Number.isFinite(row.intervalAnalysis?.summary?.avgWorkHr) ? `${Math.round(row.intervalAnalysis.summary.avgWorkHr)} bpm` : Number.isFinite(row.avgHr) ? `${Math.round(row.avgHr)} bpm` : '-'}</td>
+                                    <td>${Number.isFinite(row.intervalAnalysis?.summary?.paceCv) ? `${(row.intervalAnalysis.summary.paceCv * 100).toFixed(1)}% CV` : '-'}</td>
+                                    <td>${esc(formatNsmHrSource(row))}</td>
+                                    <td>${Number.isFinite(row.input.rpe) ? row.input.rpe : '-'}</td>
+                                    <td>${Number.isFinite(row.input.lactate) ? row.input.lactate.toFixed(1) : '-'}</td>
+                                    <td><span class="run-plus-pill ${nsmControlPillClass(row.controlStatus)}" title="${esc(row.controlFlags.join(', '))}">${esc(nsmControlLabel(row.controlStatus))}</span></td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="12">No sub-threshold sessions detected. Use the registry below to tag NSM workouts.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function renderNsmIntervalAnalysis(model) {
+    const rows = model.nsm.subThreshold.rows
+        .filter(row => row.intervalAnalysis && row.intervalAnalysis.source !== 'activity_average')
+        .slice(0, 12);
+    return `
+        <section class="run-plus-module run-plus-module--wide">
+            <div class="run-plus-module-panel">
+                <h3>SubT Interval Analysis</h3>
+                <p class="run-plus-chart-caption">Parsed work reps are used for SubT progress and cost checks. Recovery and warmup/cooldown remain part of total load, but not SubT work minutes.</p>
+                <div class="run-plus-table-wrap">
+                    <table class="compact-table run-plus-nsm-table">
+                        <thead>
+                            <tr><th>Date</th><th>Workout</th><th>Source</th><th>Reps</th><th>Work time</th><th>Work pace</th><th>Work HR</th><th>HR response</th><th>HR metric</th><th>Recovery drop</th><th>Confidence</th><th>Notes</th></tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(row => {
+                                const summary = row.intervalAnalysis.summary || {};
+                                const overlay = getNsmRowHrOverlay(row);
+                                return `
+                                    <tr>
+                                        <td>${esc(row.date)}</td>
+                                        <td>${row.run?.id ? `<a href="/html/activity-router.html?id=${encodeURIComponent(row.run.id)}" target="_blank" rel="noopener noreferrer">${esc(row.name)}</a>` : esc(row.name)}</td>
+                                        <td><span class="run-plus-pill ${nsmIntervalSourcePillClass(row.intervalAnalysis.source)}">${esc(formatNsmCombinedIntervalSource(row))}</span></td>
+                                        <td>${summary.workSegments || '-'}</td>
+                                        <td>${formatNsmHours(summary.workMinutes)}</td>
+                                        <td>${summary.avgWorkPaceSec ? paceLabel(summary.avgWorkPaceSec) : '-'}</td>
+                                        <td>${Number.isFinite(summary.avgWorkHr) ? `${Math.round(summary.avgWorkHr)} bpm` : '-'}</td>
+                                        <td>${esc(formatNsmHrResponse(row))}</td>
+                                        <td>${esc(formatNsmHrMetric(row))}</td>
+                                        <td>${esc(formatNsmRecoveryDrop(row))}</td>
+                                        <td><span class="run-plus-pill ${pillClassForConfidence(overlay?.hrConfidence || summary.hrConfidence)}">${esc(overlay?.hrConfidence || summary.hrConfidence || 'unavailable')}</span></td>
+                                        <td>${row.intervalAnalysis.warnings?.length ? esc(row.intervalAnalysis.warnings.join('; ')) : esc(nsmTemplateLabel(row.input.template))}</td>
+                                    </tr>
+                                `;
+                            }).join('') || '<tr><td colspan="12">No interval-level SubT analysis yet. Use Analyze intervals in the Session Registry.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function renderNsmEasyDiscipline(model) {
+    const easyRows = model.nsm.rows.filter(row => row.includeInNsm && row.isEasy).slice(0, 24);
+    const easy = model.nsm.easyDiscipline;
+    return `
+        <section class="run-plus-module run-plus-module--wide">
+            <div class="run-plus-module-panel">
+                <h3>Easy Discipline</h3>
+                <div class="run-plus-nsm-split">
+                    <div>
+                        <p class="run-plus-chart-caption">Easy cap is ${Math.round(model.nsm.easyHrCap)} bpm (${model.nsm.settings.easyHrCapPct}% of HRmax). Runs above that cap are not automatically bad, but they weaken the repeatable NSM rhythm when they become common.</p>
+                        <div class="run-plus-nsm-mini-grid">
+                            ${renderNsmMetric('Easy runs', `${easy.runs}`, `${easy.overCap} over cap · ${easy.hrValidRuns} HR-valid`, easy.overCap ? 'warn' : 'good')}
+                            ${renderNsmMetric('Avg easy HR', Number.isFinite(easy.avgHr) ? `${Math.round(easy.avgHr)} bpm` : '-', Number.isFinite(easy.avgHrPctMax) ? `${percentLabel(easy.avgHrPctMax)} of HRmax` : 'Needs HR data', Number.isFinite(easy.avgHrPctMax) && easy.avgHrPctMax <= model.nsm.settings.easyHrCapPct / 100 ? 'good' : 'warn')}
+                            ${renderNsmMetric('HR% distribution', Number.isFinite(easy.hrPctP50) ? `P50 ${percentLabel(easy.hrPctP50)}` : '-', Number.isFinite(easy.hrPctP25) ? `P25 ${percentLabel(easy.hrPctP25)} · P75 ${percentLabel(easy.hrPctP75)}` : 'No HR distribution', 'muted')}
+                            ${renderNsmMetric('Median easy pace', Number.isFinite(easy.medianPace) ? paceLabel(easy.medianPace) : '-', `Cap source ${Math.round(model.nsm.hrMax.value)} bpm · ${model.nsm.hrMax.source}`, 'muted')}
+                        </div>
+                    </div>
+                    <div class="run-plus-table-wrap">
+                        <table class="compact-table run-plus-nsm-table">
+                            <thead><tr><th>Date</th><th>Activity</th><th>Distance</th><th>Pace</th><th>HR</th><th>HR%max</th><th>Status</th></tr></thead>
+                            <tbody>
+                                ${easyRows.map(row => `
+                                    <tr>
+                                        <td>${esc(row.date)}</td>
+                                        <td>${esc(row.name)}</td>
+                                        <td>${formatNsmDistance(row.distanceKm)}</td>
+                                        <td>${paceLabel(row.pace)}</td>
+                                        <td>${Number.isFinite(row.avgHr) ? `${Math.round(row.avgHr)} bpm` : '-'}</td>
+                                        <td>${Number.isFinite(row.easyHrPctMax) ? percentLabel(row.easyHrPctMax) : '-'}</td>
+                                        <td>${row.easyOverCap ? '<span class="run-plus-pill run-plus-pill--warn">over cap</span>' : '<span class="run-plus-pill run-plus-pill--good">easy</span>'}</td>
+                                    </tr>
+                                `).join('') || '<tr><td colspan="7">No easy runs detected in the active filter.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="run-plus-nsm-chart-grid">
+                    <article class="run-plus-nsm-chart-card">
+                        <h4>Easy HR Margin Trend</h4>
+                        <p>Average HR minus easy cap. Above zero means the easy day crossed the cap.</p>
+                        <canvas id="${runPlusId('nsm-easy-margin-chart')}"></canvas>
+                    </article>
+                    <article class="run-plus-nsm-chart-card">
+                        <h4>Weekly Easy Compliance</h4>
+                        <p>Easy runs grouped by week, split into under-cap and over-cap days.</p>
+                        <canvas id="${runPlusId('nsm-easy-weekly-chart')}"></canvas>
+                    </article>
+                    <article class="run-plus-nsm-chart-card run-plus-nsm-chart-card--wide">
+                        <h4>Easy HR vs Pace Scatter</h4>
+                        <p>Each point is one easy run. Lines mark average easy HR and HR%max percentiles.</p>
+                        <canvas id="${runPlusId('nsm-easy-scatter-chart')}"></canvas>
+                    </article>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function renderNsmTestsAndAnchors(model) {
+    const nsm = model.nsm;
+    return `
+        <section class="run-plus-module run-plus-module--wide">
+            <div class="run-plus-module-panel">
+                <h3>Test & Pace Anchors</h3>
+                <div class="run-plus-nsm-split">
+                    <form class="run-plus-nsm-test-form" id="${runPlusId('nsm-test-form')}">
+                        <label><span>Date</span><input name="date" type="date" required></label>
+                        <label><span>Type</span><select name="type"><option>TT</option><option>5K</option><option>10K</option><option>HM</option><option>Race</option></select></label>
+                        <label><span>Distance km</span><input name="distanceKm" type="number" min="0.4" max="100" step="0.01" required></label>
+                        <label><span>Time</span><input name="time" type="text" placeholder="25:30 or 1:24:00" required></label>
+                        <label><span>Notes</span><input name="notes" type="text" maxlength="160" placeholder="Optional"></label>
+                        <div class="run-plus-nsm-actions"><button type="submit">Add test</button></div>
+                    </form>
+                    <div>
+                        <div class="run-plus-nsm-mini-grid">
+                            ${nsm.timedAnchors.map(anchor => renderNsmMetric(`${anchor.minutes} min effort`, anchor.paceSec ? paceLabel(anchor.paceSec) : '-', nsm.primaryAnchor ? `From ${nsm.primaryAnchor.date} ${nsm.primaryAnchor.type}` : 'Add a TT/race anchor', anchor.paceSec ? 'good' : 'muted')).join('')}
+                        </div>
+                        <div class="run-plus-table-wrap">
+                            <table class="compact-table run-plus-nsm-table">
+                                <thead><tr><th>Date</th><th>Type</th><th>Distance</th><th>Time</th><th>Pace</th><th></th></tr></thead>
+                                <tbody>
+                                    ${nsm.tests.map(test => `
+                                        <tr>
+                                            <td>${esc(test.date)}</td>
+                                            <td>${esc(test.type)}</td>
+                                            <td>${formatNsmDistance(test.distanceKm)}</td>
+                                            <td>${formatDurationInput(test.timeSec)}</td>
+                                            <td>${paceLabel(test.timeSec / test.distanceKm)}</td>
+                                            <td><button type="button" class="run-plus-nsm-link-button" data-remove-nsm-test="${esc(test.id)}">Remove</button></td>
+                                        </tr>
+                                    `).join('') || '<tr><td colspan="6">No manual tests saved. Race-like Strava activities are still used as weak anchors.</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function renderNsmProgressCost(model) {
+    const d = model.diagnostics;
+    const nsm = model.nsm;
+    return `
+        <section class="run-plus-module run-plus-module--wide">
+            <div class="run-plus-module-panel">
+                <h3>Progress vs Cost</h3>
+                <div class="run-plus-nsm-mini-grid">
+                    ${renderNsmMetric('Aerobic trend', d.aerobicEfficiency.trend.status, d.aerobicEfficiency.trend.improvementPct == null ? 'Not enough HR-valid data' : `${formatSigned(d.aerobicEfficiency.trend.improvementPct * 100)}% HR-normalized change`, d.aerobicEfficiency.trend.status === 'improving' ? 'good' : d.aerobicEfficiency.trend.status === 'declining' ? 'warn' : 'muted')}
+                    ${renderNsmMetric('Metabolic load', d.loadReadiness.state.label, d.loadReadiness.state.narrative, d.loadReadiness.state.status === 'risk' ? 'risk' : d.loadReadiness.state.status === 'build' ? 'warn' : 'good')}
+                    ${renderNsmMetric('Tissue cost', d.tissueLoad.status.label, `${safeFixed(d.tissueLoad.recent7Impact, 0)} ILP · ${safeFixed(d.tissueLoad.capacityRatio, 2)}x capacity`, d.tissueLoad.status.level)}
+                    ${renderNsmMetric('NSM block quality', `${percentLabel(nsm.block.subThresholdShare)} SubT work`, `${nsm.block.easyRuns} easy · ${nsm.block.longRuns} long`, nsm.block.subThresholdShare <= 0.30 ? 'good' : 'warn')}
+                </div>
+                <div class="run-plus-resolver-panel">
+                    <p><strong>Current decision:</strong> ${esc(nsm.recommendations[0])}</p>
+                    <p>This module intentionally pairs progress signals with cost signals. NSM should make threshold work repeatable; if aerobic trend improves while easy discipline and tissue capacity deteriorate, the build is not clean.</p>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function renderNsmSessionRegistry(model) {
+    const rows = model.nsm.rows;
+    return `
+        <section class="run-plus-module run-plus-module--wide">
+            <div class="run-plus-module-panel">
+                <h3>NSM Session Registry</h3>
+                <div class="run-plus-export-buttons">
+                    <button id="${runPlusId('nsm-registry-save')}" type="button">Save registry</button>
+                    <button id="${runPlusId('nsm-export-csv')}" type="button">Export NSM CSV</button>
+                    <button id="${runPlusId('nsm-export-json')}" type="button">Export NSM JSON</button>
+                </div>
+                <div class="run-plus-table-wrap">
+                    <table class="compact-table run-plus-nsm-registry-table">
+                        <thead>
+                            <tr>
+                                <th>Include</th><th>Date</th><th>Activity</th><th>Auto guess</th><th>Tag</th><th>Template</th><th>Work pace</th><th>Work HR</th><th>Work min</th><th>Analysis</th><th>RPE</th><th>Lactate</th><th>Pain</th><th>Next day</th><th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(row => `
+                                <tr class="run-plus-nsm-registry-row" data-activity-id="${esc(row.activityId)}" data-auto-tag="${esc(row.autoTag)}" data-is-subthreshold="${row.isSubThreshold ? 'true' : 'false'}">
+                                    <td><input type="checkbox" data-nsm-field="includeInNsm" ${row.includeInNsm ? 'checked' : ''}></td>
+                                    <td>${esc(row.date)}</td>
+                                    <td>${row.run?.id ? `<a href="/html/activity-router.html?id=${encodeURIComponent(row.run.id)}" target="_blank" rel="noopener noreferrer">${esc(row.name)}</a>` : esc(row.name)}</td>
+                                    <td><span class="run-plus-pill ${nsmTagPillClass(row.autoTag)}">${esc(nsmTagLabel(row.autoTag))}</span></td>
+                                    <td>
+                                        <select data-nsm-field="tag">
+                                            ${NSM_TAG_OPTIONS.map(([value, label]) => `<option value="${esc(value)}" ${row.source === 'manual' && row.manualTag === value ? 'selected' : row.source === 'auto' && value === 'auto' ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <select data-nsm-field="template">
+                                            ${NSM_TEMPLATE_OPTIONS.map(([value, label]) => `<option value="${esc(value)}" ${row.input.template === value ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+                                        </select>
+                                    </td>
+                                    <td><input data-nsm-field="workPace" type="text" inputmode="numeric" maxlength="8" placeholder="5:00" value="${esc(formatPaceInput(row.input.workPaceSec))}"></td>
+                                    <td><input data-nsm-field="workHr" type="number" min="60" max="230" step="1" value="${Number.isFinite(row.input.workHr) ? esc(row.input.workHr) : ''}"></td>
+                                    <td><input data-nsm-field="workMinutes" type="number" min="1" max="240" step="1" value="${Number.isFinite(row.input.workMinutes) ? esc(row.input.workMinutes) : ''}"></td>
+                                    <td>
+                                        ${renderNsmRegistryAnalysisCell(row)}
+                                    </td>
+                                    <td><input data-nsm-field="rpe" type="number" min="0" max="10" step="0.5" value="${Number.isFinite(row.input.rpe) ? esc(row.input.rpe) : ''}"></td>
+                                    <td><input data-nsm-field="lactate" type="number" min="0" max="12" step="0.1" value="${Number.isFinite(row.input.lactate) ? esc(row.input.lactate) : ''}"></td>
+                                    <td><input data-nsm-field="painScore" type="number" min="0" max="10" step="1" value="${Number.isFinite(row.input.painScore) ? esc(row.input.painScore) : ''}"></td>
+                                    <td><input data-nsm-field="nextDayScore" type="number" min="0" max="10" step="1" value="${Number.isFinite(row.input.nextDayScore) ? esc(row.input.nextDayScore) : ''}"></td>
+                                    <td><input data-nsm-field="notes" type="text" maxlength="240" value="${esc(row.input.notes)}"></td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="15">No runs in the active filter.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function renderNsmRulesTrust(model) {
+    const nsm = model.nsm;
+    return `
+        <section class="run-plus-collapsible-group">
+            <div class="run-plus-collapsible-group__title">
+                <span>NSM</span> Rules & Data Trust
+            </div>
+            <details class="run-plus-collapsible" open>
+                <summary>
+                    Classification rules
+                    <span class="run-plus-pill run-plus-pill--muted">${nsm.dataTrust.manualTagged} manual tags</span>
+                </summary>
+                <div class="run-plus-collapsible__body">
+                    <div class="run-plus-field-groups">
+                        <article class="run-plus-field-group"><span>SubT</span><h4>Sub-threshold</h4><p>Name matches threshold/tempo/subT/NSM/umbral, Strava workout signal, or manual tag. Short/medium/long is inferred from duration/name.</p></article>
+                        <article class="run-plus-field-group"><span>Easy</span><h4>Easy discipline</h4><p>Manual tag first, then Easy/Recovery classifier, name cues, or average HR below the local easy cap.</p></article>
+                        <article class="run-plus-field-group"><span>Long</span><h4>Long run</h4><p>Manual tag, name cue, Strava long-run signal, distance >= 16 km, or a clearly longest weekly run.</p></article>
+                        <article class="run-plus-field-group"><span>Trust</span><h4>Confidence</h4><p>SubT intervals use manual work overrides, cached lap/stream parsing, template proxy, or activity-average fallback. Activity-average SubT rows are low confidence.</p></article>
+                    </div>
+                </div>
+            </details>
+            <details class="run-plus-collapsible">
+                <summary>
+                    Field trust
+                    <span class="run-plus-pill ${pillClassForConfidence(model.diagnostics.aerobicEfficiency.confidence)}">${percentLabel(nsm.dataTrust.hrCoverage)} HR coverage</span>
+                    <span class="run-plus-pill run-plus-pill--muted">${nsm.dataTrust.intervalAnalyzed} interval parsed</span>
+                </summary>
+                <div class="run-plus-collapsible__body">
+                    <p class="run-plus-chart-caption">NSM interval analysis is local and on demand. Laps provide the fast reps/pace path; Deep HR analysis uses streams for HR response and recovery drop. Easy and long runs still use activity-level summaries.</p>
+                </div>
+            </details>
+        </section>
+    `;
+}
+
+function renderNsmPage(model) {
+    return `
+        ${renderNsmCommandCenter(model)}
+        <div class="run-plus-section-group__grid">
+            ${renderNsmWeeklyScore(model)}
+            ${renderNsmSubthresholdWorkbench(model)}
+            ${renderNsmIntervalAnalysis(model)}
+            ${renderNsmEasyDiscipline(model)}
+            ${renderNsmTestsAndAnchors(model)}
+            ${renderNsmProgressCost(model)}
+            ${renderNsmSessionRegistry(model)}
+        </div>
+        ${renderNsmRulesTrust(model)}
     `;
 }
 
@@ -2096,6 +4165,239 @@ function getCssColor(varName, fallback) {
     return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || fallback;
 }
 
+function destroyNsmEasyCharts() {
+    if (!Array.isArray(window.runPlusNsmEasyCharts)) {
+        window.runPlusNsmEasyCharts = [];
+        return;
+    }
+    window.runPlusNsmEasyCharts.forEach(chart => {
+        try {
+            chart.destroy();
+        } catch (_err) {
+            // Ignore stale Chart.js instances after route-level rerenders.
+        }
+    });
+    window.runPlusNsmEasyCharts = [];
+}
+
+function registerNsmEasyChart(chart) {
+    if (!chart) return;
+    if (!Array.isArray(window.runPlusNsmEasyCharts)) window.runPlusNsmEasyCharts = [];
+    window.runPlusNsmEasyCharts.push(chart);
+}
+
+function renderNsmEasyCharts(model) {
+    destroyNsmEasyCharts();
+    if (typeof Chart === 'undefined') return;
+
+    const easy = model?.nsm?.easyDiscipline;
+    if (!easy) return;
+
+    const runColor = getCssColor('--color-sport-run', '#fc5200');
+    const textColor = getCssColor('--color-text-medium', '#667085');
+    const borderColor = getCssColor('--color-border', '#e5e7eb');
+    const goodColor = '#16a34a';
+    const warnColor = '#f59e0b';
+    const mutedColor = '#94a3b8';
+    const riskColor = '#dc2626';
+    const chartRows = [...(easy.chartRows || [])].sort((a, b) => a.date.localeCompare(b.date));
+
+    const baseOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: textColor, boxWidth: 10 } }
+        },
+        scales: {
+            x: { ticks: { color: textColor }, grid: { color: borderColor } },
+            y: { ticks: { color: textColor }, grid: { color: borderColor } }
+        }
+    };
+
+    const marginCanvas = document.getElementById(runPlusId('nsm-easy-margin-chart'));
+    if (marginCanvas && chartRows.length) {
+        registerNsmEasyChart(new Chart(marginCanvas.getContext('2d'), {
+            data: {
+                labels: chartRows.map(row => row.date),
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'HR margin vs cap',
+                        data: chartRows.map(row => +row.easyHrMargin.toFixed(1)),
+                        backgroundColor: chartRows.map(row => row.easyHrMargin > 0 ? 'rgba(245, 158, 11, 0.42)' : 'rgba(22, 163, 74, 0.34)'),
+                        borderColor: chartRows.map(row => row.easyHrMargin > 0 ? warnColor : goodColor),
+                        borderWidth: 1
+                    },
+                    {
+                        type: 'line',
+                        label: 'Easy cap',
+                        data: chartRows.map(() => 0),
+                        borderColor: riskColor,
+                        borderDash: [6, 4],
+                        pointRadius: 0,
+                        borderWidth: 1.5
+                    }
+                ]
+            },
+            options: {
+                ...baseOptions,
+                plugins: {
+                    ...baseOptions.plugins,
+                    tooltip: {
+                        callbacks: {
+                            label: context => `${context.dataset.label}: ${formatSigned(Number(context.raw), 1)} bpm`
+                        }
+                    }
+                },
+                scales: {
+                    ...baseOptions.scales,
+                    y: {
+                        ...baseOptions.scales.y,
+                        title: { display: true, text: 'bpm vs easy cap', color: textColor }
+                    }
+                }
+            }
+        }));
+    }
+
+    const weeklyCanvas = document.getElementById(runPlusId('nsm-easy-weekly-chart'));
+    const weeklyRows = easy.weeklyCompliance || [];
+    if (weeklyCanvas && weeklyRows.length) {
+        registerNsmEasyChart(new Chart(weeklyCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: weeklyRows.map(row => row.week),
+                datasets: [
+                    {
+                        label: 'Under cap',
+                        data: weeklyRows.map(row => row.underCap),
+                        backgroundColor: 'rgba(22, 163, 74, 0.55)',
+                        borderColor: goodColor,
+                        borderWidth: 1,
+                        stack: 'easy'
+                    },
+                    {
+                        label: 'Over cap',
+                        data: weeklyRows.map(row => row.overCap),
+                        backgroundColor: 'rgba(245, 158, 11, 0.55)',
+                        borderColor: warnColor,
+                        borderWidth: 1,
+                        stack: 'easy'
+                    },
+                    {
+                        label: 'No HR',
+                        data: weeklyRows.map(row => row.unknownHr),
+                        backgroundColor: 'rgba(148, 163, 184, 0.42)',
+                        borderColor: mutedColor,
+                        borderWidth: 1,
+                        stack: 'easy'
+                    }
+                ]
+            },
+            options: {
+                ...baseOptions,
+                scales: {
+                    x: { ...baseOptions.scales.x, stacked: true },
+                    y: {
+                        ...baseOptions.scales.y,
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: { ...baseOptions.scales.y.ticks, precision: 0 },
+                        title: { display: true, text: 'easy runs', color: textColor }
+                    }
+                }
+            }
+        }));
+    }
+
+    const scatterCanvas = document.getElementById(runPlusId('nsm-easy-scatter-chart'));
+    const scatterRows = chartRows.filter(row => Number.isFinite(row.pace) && Number.isFinite(row.avgHr));
+    if (scatterCanvas && scatterRows.length) {
+        const points = scatterRows.map(row => ({
+            x: row.pace / 60,
+            y: row.avgHr,
+            row
+        }));
+        const xValues = points.map(point => point.x);
+        const xMin = Math.min(...xValues);
+        const xMax = Math.max(...xValues);
+        const xPad = xMin === xMax ? 0.15 : (xMax - xMin) * 0.06;
+        const xStart = Math.max(0, xMin - xPad);
+        const xEnd = xMax + xPad;
+        const lineData = value => Number.isFinite(value) ? [{ x: xStart, y: value }, { x: xEnd, y: value }] : [];
+        const percentileLine = (label, pct, color) => ({
+            type: 'line',
+            label,
+            data: lineData(Number.isFinite(pct) ? pct * model.nsm.hrMax.value : null),
+            borderColor: color,
+            borderDash: [5, 5],
+            borderWidth: 1,
+            pointRadius: 0,
+            showLine: true
+        });
+
+        registerNsmEasyChart(new Chart(scatterCanvas.getContext('2d'), {
+            data: {
+                datasets: [
+                    {
+                        type: 'scatter',
+                        label: 'Easy runs',
+                        data: points,
+                        backgroundColor: points.map(point => point.row.easyOverCap ? 'rgba(245, 158, 11, 0.72)' : 'rgba(22, 163, 74, 0.62)'),
+                        borderColor: points.map(point => point.row.easyOverCap ? warnColor : goodColor),
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        type: 'line',
+                        label: Number.isFinite(easy.avgHrPctMax) ? `Avg HR ${percentLabel(easy.avgHrPctMax)} HRmax` : 'Avg HR',
+                        data: lineData(easy.avgHr),
+                        borderColor: runColor,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        showLine: true
+                    },
+                    percentileLine('P25 HR%max', easy.hrPctP25, mutedColor),
+                    percentileLine('P50 HR%max', easy.hrPctP50, '#64748b'),
+                    percentileLine('P75 HR%max', easy.hrPctP75, riskColor)
+                ]
+            },
+            options: {
+                ...baseOptions,
+                parsing: false,
+                plugins: {
+                    ...baseOptions.plugins,
+                    tooltip: {
+                        callbacks: {
+                            label: context => {
+                                const raw = context.raw;
+                                if (!raw?.row) return `${context.dataset.label}: ${Math.round(raw?.y || 0)} bpm`;
+                                return `${raw.row.date} · ${raw.row.name}: ${paceLabel(raw.row.pace)}, ${Math.round(raw.row.avgHr)} bpm (${percentLabel(raw.row.easyHrPctMax)})${raw.row.easyOverCap ? ' · over cap' : ''}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ...baseOptions.scales.x,
+                        min: xStart,
+                        max: xEnd,
+                        title: { display: true, text: 'pace min/km', color: textColor },
+                        ticks: {
+                            color: textColor,
+                            callback: value => paceLabel(Number(value) * 60)
+                        }
+                    },
+                    y: {
+                        ...baseOptions.scales.y,
+                        title: { display: true, text: 'average HR bpm', color: textColor }
+                    }
+                }
+            }
+        }));
+    }
+}
+
 function destroyImpactLoadChart() {
     if (window.runPlusMechanicalLoadChart) {
         window.runPlusMechanicalLoadChart.destroy();
@@ -2314,9 +4616,337 @@ function bindCapacityInputs(root, allActivities, dateFilterFrom, dateFilterTo, g
     }
 }
 
+function bindRunPlusSubviewNav(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options) {
+    root.querySelectorAll('[data-run-plus-subview]').forEach(button => {
+        button.addEventListener('click', () => {
+            const href = button.dataset.href || '/run-plus';
+            if (window.location.pathname !== href) {
+                window.history.pushState({ tabId: 'run-plus-tab', subview: button.dataset.runPlusSubview }, '', href);
+            }
+            renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+        });
+    });
+}
+
+function bindNsmSettings(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options) {
+    const form = root.querySelector(`#${runPlusId('nsm-settings-form')}`);
+    const resetButton = root.querySelector(`#${runPlusId('nsm-settings-reset')}`);
+    if (form) {
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            const data = new FormData(form);
+            const settings = normalizeNsmSettings({
+                easyHrCapPct: data.get('easyHrCapPct'),
+                thresholdHrPct: data.get('thresholdHrPct'),
+                currentBlockStart: data.get('currentBlockStart'),
+                currentBlockEnd: data.get('currentBlockEnd'),
+                targetRace: data.get('targetRace'),
+                weeklyTemplate: data.get('weeklyTemplate')
+            });
+            writeJsonStorage(NSM_SETTINGS_STORAGE_KEY, settings);
+            renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+        });
+    }
+    if (resetButton) {
+        resetButton.addEventListener('click', () => {
+            localStorage.removeItem(NSM_SETTINGS_STORAGE_KEY);
+            renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+        });
+    }
+}
+
+function bindNsmTestControls(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options) {
+    const form = root.querySelector(`#${runPlusId('nsm-test-form')}`);
+    if (form) {
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            const data = new FormData(form);
+            const test = normalizeNsmTest({
+                date: data.get('date'),
+                type: data.get('type'),
+                distanceKm: data.get('distanceKm'),
+                time: data.get('time'),
+                notes: data.get('notes')
+            });
+            if (!test) return;
+            const tests = readNsmTests();
+            tests.push({ ...test, id: `${test.date}-${test.type}-${test.distanceKm}-${test.timeSec}-${Date.now()}` });
+            writeJsonStorage(NSM_TESTS_STORAGE_KEY, tests);
+            renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+        });
+    }
+
+    root.querySelectorAll('[data-remove-nsm-test]').forEach(button => {
+        button.addEventListener('click', () => {
+            const removeId = button.dataset.removeNsmTest;
+            const tests = readNsmTests().filter(test => test.id !== removeId);
+            writeJsonStorage(NSM_TESTS_STORAGE_KEY, tests);
+            renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+        });
+    });
+}
+
+function collectNsmRegistryPayload(root) {
+    const tags = readNsmActivityTags();
+    const inputs = readNsmSessionInputs();
+
+    root.querySelectorAll('.run-plus-nsm-registry-row').forEach(row => {
+        const activityId = row.dataset.activityId;
+        if (!activityId) return;
+        const includeInNsm = row.querySelector('[data-nsm-field="includeInNsm"]')?.checked !== false;
+        const tag = normalizeNsmTag(row.querySelector('[data-nsm-field="tag"]')?.value || 'auto');
+        if (tag === 'auto' && includeInNsm) {
+            delete tags[activityId];
+        } else {
+            tags[activityId] = normalizeNsmActivityTag({
+                tag: includeInNsm ? tag : 'excluded',
+                includeInNsm,
+                updatedAt: new Date().toISOString()
+            });
+        }
+
+        const input = normalizeNsmSessionInput({
+            template: row.querySelector('[data-nsm-field="template"]')?.value,
+            workPace: row.querySelector('[data-nsm-field="workPace"]')?.value,
+            workHr: row.querySelector('[data-nsm-field="workHr"]')?.value,
+            workMinutes: row.querySelector('[data-nsm-field="workMinutes"]')?.value,
+            rpe: row.querySelector('[data-nsm-field="rpe"]')?.value,
+            lactate: row.querySelector('[data-nsm-field="lactate"]')?.value,
+            painScore: row.querySelector('[data-nsm-field="painScore"]')?.value,
+            nextDayScore: row.querySelector('[data-nsm-field="nextDayScore"]')?.value,
+            notes: row.querySelector('[data-nsm-field="notes"]')?.value
+        });
+        if (hasNsmSessionInput(input)) inputs[activityId] = input;
+        else delete inputs[activityId];
+    });
+
+    return { tags, inputs };
+}
+
+function nsmExportRows(model) {
+    return model.nsm.rows.map(row => {
+        const overlay = getNsmRowHrOverlay(row);
+        return {
+        activityId: row.activityId,
+        date: row.date,
+        name: row.name,
+        tag: row.tag,
+        autoTag: row.autoTag,
+        source: row.source,
+        structureSource: row.isSubThreshold ? row.intervalAnalysis?.source || '' : '',
+        structureConfidence: row.isSubThreshold ? row.intervalAnalysis?.confidence || row.confidence : '',
+        hrSource: overlay?.source || '',
+        hrConfidence: overlay?.hrConfidence || '',
+        intervalSource: row.isSubThreshold ? row.intervalAnalysis?.source || '' : '',
+        intervalConfidence: row.isSubThreshold ? row.intervalAnalysis?.confidence || row.confidence : '',
+        intervalTemplate: row.isSubThreshold ? row.intervalAnalysis?.summary?.workoutFamily || row.input.template : '',
+        subThresholdWorkMinutes: row.isSubThreshold ? +row.subThresholdWorkMinutes.toFixed(1) : '',
+        workPace: row.intervalAnalysis?.summary?.avgWorkPaceSec ? paceLabel(row.intervalAnalysis.summary.avgWorkPaceSec) : '',
+        workHr: Number.isFinite(row.intervalAnalysis?.summary?.avgWorkHr) ? Math.round(row.intervalAnalysis.summary.avgWorkHr) : '',
+        workRepCount: Number.isFinite(row.intervalAnalysis?.summary?.workSegments) ? row.intervalAnalysis.summary.workSegments : '',
+        workPaceCv: Number.isFinite(row.intervalAnalysis?.summary?.paceCv) ? +(row.intervalAnalysis.summary.paceCv * 100).toFixed(1) : '',
+        hrMetricUsed: overlay?.hrMetricUsed || '',
+        hrResponse: overlay?.source === 'streams' && Number.isFinite(overlay.hrResponse) ? +overlay.hrResponse.toFixed(1) : '',
+        earlyRepRange: overlay?.earlyRepRange || '',
+        lateRepRange: overlay?.lateRepRange || '',
+        controlStatus: row.controlStatus || '',
+        hrDrift: overlay?.source === 'streams' && Number.isFinite(overlay.hrResponse) ? +overlay.hrResponse.toFixed(1) : '',
+        recoveryHrDrop: overlay?.source === 'streams' && Number.isFinite(overlay.recoveryHrDrop) ? +overlay.recoveryHrDrop.toFixed(1) : '',
+        recoveryHrDropSource: overlay?.source === 'streams' ? 'streams' : row.intervalAnalysis?.source === 'laps' ? 'needs streams' : '',
+        includeInNsm: row.includeInNsm,
+        distanceKm: +row.distanceKm.toFixed(3),
+        movingMinutes: +row.minutes.toFixed(1),
+        pace: paceLabel(row.pace),
+        averageHr: Number.isFinite(row.avgHr) ? Math.round(row.avgHr) : '',
+        template: row.input.template,
+        manualWorkPace: Number.isFinite(row.input.workPaceSec) ? paceLabel(row.input.workPaceSec) : '',
+        manualWorkHr: Number.isFinite(row.input.workHr) ? row.input.workHr : '',
+        manualWorkMinutes: Number.isFinite(row.input.workMinutes) ? row.input.workMinutes : '',
+        rpe: Number.isFinite(row.input.rpe) ? row.input.rpe : '',
+        lactate: Number.isFinite(row.input.lactate) ? row.input.lactate : '',
+        painScore: Number.isFinite(row.input.painScore) ? row.input.painScore : '',
+        nextDayScore: Number.isFinite(row.input.nextDayScore) ? row.input.nextDayScore : '',
+        notes: row.input.notes,
+        overcookFlags: row.overcookFlags.join('; ')
+        };
+    });
+}
+
+function downloadRunPlusText(filename, content, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function getRunPlusAuthPayload() {
+    const tokenString = localStorage.getItem('strava_tokens');
+    return tokenString ? btoa(tokenString) : null;
+}
+
+async function fetchRunPlusApi(url) {
+    const authPayload = getRunPlusAuthPayload();
+    const response = await fetch(url, {
+        headers: authPayload ? { Authorization: `Bearer ${authPayload}` } : {}
+    });
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+    }
+    const result = await response.json();
+    if (result.tokens) localStorage.setItem('strava_tokens', JSON.stringify(result.tokens));
+    return result;
+}
+
+async function fetchNsmActivityDetails(activityId) {
+    const result = await fetchRunPlusApi(`/api/strava-activity?id=${encodeURIComponent(activityId)}`);
+    return result.activity;
+}
+
+async function fetchNsmActivityStreams(activityId) {
+    const streamTypes = 'time,distance,velocity_smooth,heartrate,cadence,altitude';
+    const result = await fetchRunPlusApi(`/api/strava-streams?id=${encodeURIComponent(activityId)}&type=${encodeURIComponent(streamTypes)}`);
+    return result.streams;
+}
+
+async function analyzeNsmIntervals(row) {
+    if (!row?.run?.id) throw new Error('Activity ID is required for interval analysis.');
+    if (hasNsmManualWorkOverride(row.input)) return buildNsmManualIntervalAnalysis(row.run, row.input, row.tag);
+
+    const localLapAnalysis = analyzeNsmLaps(row.run, row.run, row.input);
+    if (localLapAnalysis) return localLapAnalysis;
+
+    let detailError = null;
+    try {
+        const activity = await fetchNsmActivityDetails(row.run.id);
+        const lapAnalysis = analyzeNsmLaps(activity, row.run, row.input);
+        if (lapAnalysis) return lapAnalysis;
+    } catch (err) {
+        detailError = err;
+    }
+
+    return {
+        ...buildNsmActivityAverageAnalysis(row.run, row.input, row.tag),
+        warnings: [detailError ? `No usable laps detected (${detailError.message}); kept activity-average proxy.` : 'No usable laps detected; kept activity-average proxy. Use Deep HR analysis for streams.']
+    };
+}
+
+async function analyzeNsmDeepHr(row) {
+    if (!row?.run?.id) throw new Error('Activity ID is required for deep HR analysis.');
+
+    const analyzeStreamsForRow = streams => analyzeNsmStreamsAgainstStructure(streams, row.run, row.input, row.intervalAnalysis)
+        || analyzeNsmStreams(streams, row.run, row.input);
+    const localStreams = row.run?.streams;
+    const localStreamAnalysis = localStreams ? analyzeStreamsForRow(localStreams) : null;
+    if (localStreamAnalysis) return mergeNsmHrOverlay(row.intervalAnalysis, localStreamAnalysis, row.run, row.input, row.tag);
+
+    const streams = await fetchNsmActivityStreams(row.run.id);
+    const streamAnalysis = analyzeStreamsForRow(streams);
+    if (streamAnalysis) return mergeNsmHrOverlay(row.intervalAnalysis, streamAnalysis, row.run, row.input, row.tag);
+    throw new Error('No usable stream HR points matched the interval structure. Keep the laps proxy or check Strava streams for this activity.');
+}
+
+function bindNsmRegistry(root, model, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options) {
+    const saveButton = root.querySelector(`#${runPlusId('nsm-registry-save')}`);
+    if (saveButton) {
+        saveButton.addEventListener('click', () => {
+            const { tags, inputs } = collectNsmRegistryPayload(root);
+            writeJsonStorage(NSM_ACTIVITY_TAGS_STORAGE_KEY, tags);
+            writeJsonStorage(NSM_SESSION_INPUTS_STORAGE_KEY, inputs);
+            renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+        });
+    }
+
+    const csvButton = root.querySelector(`#${runPlusId('nsm-export-csv')}`);
+    if (csvButton) {
+        csvButton.addEventListener('click', () => {
+            const rows = nsmExportRows(model);
+            if (!rows.length) return;
+            const headers = Object.keys(rows[0]);
+            const csv = [
+                headers.join(','),
+                ...rows.map(row => headers.map(header => `"${String(row[header] ?? '').replace(/"/g, '""')}"`).join(','))
+            ].join('\n');
+            downloadRunPlusText('run-plus-nsm-sessions.csv', csv, 'text/csv');
+        });
+    }
+
+    const jsonButton = root.querySelector(`#${runPlusId('nsm-export-json')}`);
+    if (jsonButton) {
+        jsonButton.addEventListener('click', () => {
+            const payload = {
+                settings: model.nsm.settings,
+                weekly: model.nsm.weekly,
+                rows: nsmExportRows(model),
+                tests: model.nsm.tests
+            };
+            downloadRunPlusText('run-plus-nsm-sessions.json', JSON.stringify(payload, null, 2), 'application/json');
+        });
+    }
+
+    const handleAnalysisClick = async (button, analyzer, loadingLabel, failedLabel) => {
+        const activityId = button.dataset.nsmAnalyzeIntervals || button.dataset.nsmAnalyzeStreams;
+        const row = model.nsm.rows.find(item => item.activityId === activityId);
+        if (!row) return;
+        const { tags, inputs } = collectNsmRegistryPayload(root);
+        writeJsonStorage(NSM_ACTIVITY_TAGS_STORAGE_KEY, tags);
+        writeJsonStorage(NSM_SESSION_INPUTS_STORAGE_KEY, inputs);
+        row.input = normalizeNsmSessionInput(inputs[activityId] || {});
+        button.disabled = true;
+        button.textContent = loadingLabel;
+        try {
+            let analysis = await analyzer(row);
+            if (button.dataset.nsmAnalyzeIntervals) {
+                if (analysis.source === 'activity_average' && row.intervalAnalysis?.source === 'streams') {
+                    analysis = {
+                        ...row.intervalAnalysis,
+                        warnings: [...new Set([...(row.intervalAnalysis.warnings || []), ...(analysis.warnings || [])])]
+                    };
+                } else if (row.hrOverlay) {
+                    analysis = { ...analysis, hrOverlay: row.hrOverlay };
+                }
+            }
+            saveNsmIntervalAnalysis(activityId, row.run, analysis);
+            renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+        } catch (err) {
+            console.error('NSM interval analysis failed:', err);
+            button.disabled = false;
+            button.textContent = failedLabel;
+            button.title = err.message || 'Unable to analyze intervals';
+        }
+    };
+
+    root.querySelectorAll('[data-nsm-analyze-intervals]').forEach(button => {
+        button.addEventListener('click', async () => {
+            await handleAnalysisClick(button, analyzeNsmIntervals, 'Analyzing...', 'Analyze failed');
+        });
+    });
+
+    root.querySelectorAll('[data-nsm-analyze-streams]').forEach(button => {
+        button.addEventListener('click', async () => {
+            await handleAnalysisClick(button, analyzeNsmDeepHr, 'Deep analyzing...', 'Deep HR failed');
+        });
+    });
+}
+
+function bindNsmControls(root, model, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options) {
+    bindNsmSettings(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+    bindNsmTestControls(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+    bindNsmRegistry(root, model, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+}
+
 function bindRunPlusControls(root, model, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options = {}) {
     bindRunPlusFilterControls(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
     bindCapacityInputs(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+    bindRunPlusSubviewNav(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+    if (model.nsm && getRunPlusSubview() === 'nsm') {
+        bindNsmControls(root, model, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+    }
 
     const rollingSelector = root.querySelector(`#${runPlusId('rolling-window-selector')}`);
     if (rollingSelector) {
@@ -2367,30 +4997,84 @@ function publishRunPlusDiagnostics(root, diagnostics) {
     window.runPlusDiagnostics = diagnostics;
 }
 
+function publishRunPlusNsm(root, nsm) {
+    if (!root || !nsm) return;
+    const summary = {
+        settings: nsm.settings,
+        latestWeek: nsm.latestWeek,
+        recent7: nsm.recent7,
+        recent28: nsm.recent28,
+        block: nsm.block,
+        easyDiscipline: nsm.easyDiscipline,
+        subThreshold: {
+            sessions: nsm.subThreshold.sessions,
+            overcooked: nsm.subThreshold.overcooked,
+            share: nsm.subThreshold.share
+        },
+        tests: nsm.tests,
+        recommendations: nsm.recommendations,
+        dataTrust: nsm.dataTrust
+    };
+    root.runPlusNsm = summary;
+    root.dataset.runPlusNsm = JSON.stringify(summary);
+    window.runPlusNsm = summary;
+}
+
 // ─── Main render ────────────────────────────────────────
 
 export function renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, gearFilter = 'all', options = {}) {
     const root = document.getElementById('run-plus-tab');
     if (!root) return;
 
-    const model = buildModel(allActivities, dateFilterFrom, dateFilterTo, gearFilter);
+    const subview = getRunPlusSubview();
+    const nsmSettings = subview === 'nsm' ? readNsmSettings() : null;
+    const effectiveDateFilterFrom = subview === 'nsm' && !dateFilterFrom && nsmSettings?.currentBlockStart
+        ? nsmSettings.currentBlockStart
+        : dateFilterFrom;
+    const effectiveDateFilterTo = dateFilterTo;
+    const model = buildModel(allActivities, effectiveDateFilterFrom, effectiveDateFilterTo, gearFilter);
     model.diagnostics = buildDiagnostics(model);
+    model.nsm = buildNsmModel(model);
 
     if (!model.runs.length) {
         destroyImpactLoadChart();
+        destroyNsmEasyCharts();
         publishRunPlusDiagnostics(root, model.diagnostics);
+        publishRunPlusNsm(root, model.nsm);
         root.innerHTML = `
             <div class="run-plus-shell">
-                ${renderRunPlusFilters(allActivities, dateFilterFrom, dateFilterTo, gearFilter)}
+                ${renderRunPlusFilters(allActivities, effectiveDateFilterFrom, effectiveDateFilterTo, gearFilter)}
+                ${renderRunPlusSubviewNav(subview)}
                 <section class="run-plus-diagnosis-overview">
-                    <h2>Run Plus</h2>
+                    <h2>${subview === 'nsm' ? 'NSM Training Control' : 'Run Plus'}</h2>
                     <p>No run activities match the current filters.</p>
                 </section>
             </div>
         `;
         bindRunPlusFilterControls(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+        bindRunPlusSubviewNav(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+        if (subview === 'nsm') bindNsmControls(root, model, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
         return;
     }
+
+    if (subview === 'nsm') {
+        destroyImpactLoadChart();
+        destroyNsmEasyCharts();
+        root.innerHTML = `
+            <div class="run-plus-shell">
+                ${renderRunPlusFilters(allActivities, effectiveDateFilterFrom, effectiveDateFilterTo, gearFilter)}
+                ${renderRunPlusSubviewNav(subview)}
+                ${renderNsmPage(model)}
+            </div>
+        `;
+        publishRunPlusDiagnostics(root, model.diagnostics);
+        publishRunPlusNsm(root, model.nsm);
+        bindRunPlusControls(root, model, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+        renderNsmEasyCharts(model);
+        return;
+    }
+
+    destroyNsmEasyCharts();
 
     // Build all section groups
     const sectionGroupsHtml = SECTION_GROUPS.map(group => renderSectionGroup(group, model)).join('');
@@ -2412,6 +5096,7 @@ export function renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, ge
     root.innerHTML = `
         <div class="run-plus-shell">
             ${renderRunPlusFilters(allActivities, dateFilterFrom, dateFilterTo, gearFilter)}
+            ${renderRunPlusSubviewNav(subview)}
             ${renderDiagnosisOverview(model)}
             ${renderStatCards(model)}
             ${sectionGroupsHtml}
@@ -2420,6 +5105,7 @@ export function renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, ge
     `;
 
     publishRunPlusDiagnostics(root, model.diagnostics);
+    publishRunPlusNsm(root, model.nsm);
 
     renderRunAnalysisTab(
         allActivities,

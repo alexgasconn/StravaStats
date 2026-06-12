@@ -211,7 +211,7 @@ function resolveStaticPath(url) {
 
   if (
     decodedPathname === '/' ||
-    decodedPathname.match(/^\/(run|dashboard|bike|swim|trends|planner|gear|activities|calendar|weather|map|wrapped|ai-coach)$/)
+    decodedPathname.match(/^\/(run|run-plus(?:\/nsm)?|dashboard|bike|swim|trends|planner|gear|activities|calendar|weather|map|wrapped|ai-coach)$/)
   ) {
     return path.join(rootDir, 'index.html');
   }

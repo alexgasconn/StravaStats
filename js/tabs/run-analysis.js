@@ -1824,7 +1824,7 @@ function renderTopRuns(runs) {
 
     const activityLink = a => {
         if (!a?.id) return a?.name || '-';
-        return `<a href="html/activity-router.html?id=${encodeURIComponent(a.id)}" target="_blank" rel="noopener noreferrer">${a.name}</a>`;
+        return `<a href="/html/activity-router.html?id=${encodeURIComponent(a.id)}" target="_blank" rel="noopener noreferrer">${a.name}</a>`;
     };
 
     el.innerHTML = `
@@ -1877,7 +1877,7 @@ function renderActivitiesTable(runs) {
             const pace = utils.formatPace(1000 / a.average_speed, 1);
             const paceVal = a.average_speed > 0 ? (1000 / a.average_speed) : 9999;
             const activityLink = a.id
-                ? `<a href="html/activity-router.html?id=${encodeURIComponent(a.id)}" target="_blank" rel="noopener noreferrer">${a.name}</a>`
+                ? `<a href="/html/activity-router.html?id=${encodeURIComponent(a.id)}" target="_blank" rel="noopener noreferrer">${a.name}</a>`
                 : a.name;
             return `
             <tr>

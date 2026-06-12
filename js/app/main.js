@@ -169,6 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         '/': 'dashboard-tab',
         '/run': 'run-tab',
         '/run-plus': 'run-plus-tab',
+        '/run-plus/nsm': 'run-plus-tab',
         '/dashboard': 'dashboard-tab',
         '/bike': 'bike-tab',
         '/swim': 'swim-tab',
@@ -330,7 +331,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function activateTab(tabId, { updateUrl = false, replaceUrl = false } = {}) {
-        if (tabId === activeTabId) return; // skip if already active
+        if (tabId === activeTabId) {
+            if (tabId === 'run-plus-tab' && tabConfig[tabId]) {
+                requestAnimationFrame(() => tabConfig[tabId].render());
+            }
+            return; // skip if already active
+        }
 
         const link = document.querySelector(`.tab-link[data-tab="${tabId}"]`);
         const content = document.getElementById(tabId);
@@ -365,7 +371,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (updateUrl) {
-            const route = tabToRoute[tabId] || '/run';
+            const currentRoute = normalizePath(window.location.pathname);
+            const route = replaceUrl && tabId === 'run-plus-tab' && routeToTab[currentRoute] === 'run-plus-tab'
+                ? currentRoute
+                : (tabToRoute[tabId] || '/run');
             const method = replaceUrl ? 'replaceState' : 'pushState';
             window.history[method]({ tabId }, '', route);
         }

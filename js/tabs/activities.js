@@ -397,7 +397,7 @@ const COLUMNS = [
     },
     {
         key: 'name', label: 'Name',
-        format: (v, a) => `<a class="act-name-link" href="html/activity-router.html?id=${a.id}" target="_blank">${v || '—'}</a>`,
+        format: (v, a) => `<a class="act-name-link" href="/html/activity-router.html?id=${a.id}" target="_blank">${v || '—'}</a>`,
         csv: (v) => v || ''
     },
     {

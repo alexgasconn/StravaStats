@@ -384,6 +384,8 @@
 
 .run-plus-module-panel > h3 {
     margin: 0 0 0.75rem;
+    padding-top: 0.85rem;
+    border-top: 2px solid var(--color-border);
     color: var(--color-sport-run);
     font-size: 1rem;
 }
@@ -978,6 +980,253 @@
     border-color: rgba(220, 38, 38, 0.28);
 }
 
+/* ─── NSM Subpage ───────────────────────────────────── */
+.run-plus-subnav {
+    display: inline-flex;
+    align-self: flex-start;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.run-plus-subnav__item {
+    min-height: 34px;
+    padding: 0.35rem 0.85rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-medium);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.run-plus-subnav__item.active {
+    background: var(--color-sport-run);
+    color: #fff;
+}
+
+.run-plus-nsm-hero {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.5fr);
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-left: 5px solid var(--color-sport-run);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+}
+
+.run-plus-nsm-command-grid,
+.run-plus-nsm-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.run-plus-nsm-mini-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.run-plus-nsm-metric {
+    min-height: 118px;
+    padding: 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+}
+
+.run-plus-nsm-metric span {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--color-text-medium);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.run-plus-nsm-metric strong {
+    display: block;
+    color: var(--color-text-dark);
+    font-size: 1rem;
+    line-height: 1.25;
+}
+
+.run-plus-nsm-metric small {
+    display: block;
+    margin-top: 0.45rem;
+    color: var(--color-text-medium);
+    line-height: 1.35;
+}
+
+.run-plus-nsm-config {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--color-border-light);
+    padding-top: 0.75rem;
+}
+
+.run-plus-nsm-config summary {
+    color: var(--color-text-dark);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.run-plus-nsm-settings,
+.run-plus-nsm-test-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.run-plus-nsm-settings label,
+.run-plus-nsm-test-form label {
+    display: grid;
+    gap: 0.3rem;
+}
+
+.run-plus-nsm-settings label span,
+.run-plus-nsm-test-form label span {
+    color: var(--color-text-medium);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.run-plus-nsm-settings input,
+.run-plus-nsm-settings select,
+.run-plus-nsm-test-form input,
+.run-plus-nsm-test-form select,
+.run-plus-nsm-registry-table input,
+.run-plus-nsm-registry-table select {
+    min-height: 34px;
+    padding: 0.35rem 0.45rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-card);
+    color: var(--color-text-dark);
+}
+
+.run-plus-nsm-actions {
+    display: flex;
+    align-items: end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.run-plus-nsm-split {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+    gap: 1rem;
+}
+
+.run-plus-nsm-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.run-plus-nsm-chart-card {
+    min-width: 0;
+    padding: 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+}
+
+.run-plus-nsm-chart-card--wide {
+    grid-column: 1 / -1;
+}
+
+.run-plus-nsm-chart-card h4 {
+    margin: 0;
+    color: var(--color-text-dark);
+    font-size: 0.92rem;
+}
+
+.run-plus-nsm-chart-card p {
+    margin: 0.35rem 0 0.7rem;
+    color: var(--color-text-medium);
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+.run-plus-nsm-chart-card canvas {
+    width: 100%;
+    min-height: 260px;
+    max-height: 320px;
+}
+
+.run-plus-nsm-table th,
+.run-plus-nsm-table td,
+.run-plus-nsm-registry-table th,
+.run-plus-nsm-registry-table td {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.run-plus-nsm-table {
+    min-width: 980px;
+}
+
+.run-plus-nsm-registry-table {
+    min-width: 1580px;
+}
+
+.run-plus-nsm-registry-table input[type="text"] {
+    min-width: 86px;
+}
+
+.run-plus-nsm-registry-table input[data-nsm-field="notes"] {
+    min-width: 180px;
+}
+
+.run-plus-nsm-registry-table input[data-nsm-field="workPace"] {
+    width: 86px;
+}
+
+.run-plus-nsm-registry-table input[type="number"] {
+    width: 72px;
+}
+
+.run-plus-nsm-registry-table select {
+    min-width: 118px;
+}
+
+.run-plus-nsm-link-button {
+    min-height: 30px;
+    padding: 0.25rem 0.55rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-medium);
+    cursor: pointer;
+}
+
+.run-plus-nsm-link-button:hover {
+    color: var(--color-sport-run);
+    border-color: var(--color-sport-run);
+}
+
+.run-plus-nsm-link-button:disabled {
+    cursor: progress;
+    opacity: 0.62;
+}
+
+.run-plus-nsm-analysis-cell {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    min-width: 220px;
+}
+
 /* ─── Dark Mode Overrides ───────────────────────────── */
 html[data-theme="dark"] .run-plus-pill--good {
     color: #86efac;
@@ -1020,8 +1269,24 @@ html[data-theme="dark"] .run-plus-diagnosis-toggle__label {
     .run-plus-section-group__grid,
     .run-plus-chart-pair,
     .run-plus-tissue-grid,
-    .run-plus-tissue-split {
+    .run-plus-tissue-split,
+    .run-plus-nsm-hero,
+    .run-plus-nsm-command-grid,
+    .run-plus-nsm-split,
+    .run-plus-nsm-chart-grid {
         grid-template-columns: 1fr;
+    }
+
+    .run-plus-subnav {
+        width: 100%;
+    }
+
+    .run-plus-subnav__item {
+        flex: 1;
+    }
+
+    .run-plus-nsm-hero {
+        padding: 0.9rem;
     }
 
     .run-plus-chart-heading {
@@ -1058,14 +1323,18 @@ html[data-theme="dark"] .run-plus-diagnosis-toggle__label {
     }
 
     .run-plus-chart-pair,
-    .run-plus-tissue-split {
+    .run-plus-tissue-split,
+    .run-plus-nsm-hero,
+    .run-plus-nsm-command-grid,
+    .run-plus-nsm-split {
         grid-template-columns: 1fr;
     }
 }
 
 @media (min-width: 900px) and (max-width: 1180px) {
     .run-plus-overview-grid,
-    .run-plus-section-group__grid {
+    .run-plus-section-group__grid,
+    .run-plus-nsm-command-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
