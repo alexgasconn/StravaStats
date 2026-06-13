@@ -209,6 +209,10 @@ function percentLabel(value, digits = 0) {
     return Number.isFinite(value) ? `${(value * 100).toFixed(digits)}%` : '-';
 }
 
+function nsmHrPercentLabel(value) {
+    return percentLabel(value, 1);
+}
+
 function safeFixed(value, digits = 1, fallback = '-') {
     return Number.isFinite(value) ? value.toFixed(digits) : fallback;
 }
@@ -368,9 +372,14 @@ function parseNsmNumber(value, min, max, fallback = null) {
 
 function normalizeNsmSettings(raw = {}) {
     const settings = { ...NSM_DEFAULT_SETTINGS, ...(raw || {}) };
+    const easyHrCapPct = parseNsmNumber(settings.easyHrCapPct, 50, 85, NSM_DEFAULT_SETTINGS.easyHrCapPct);
+    const thresholdHrCapPct = Math.max(
+        easyHrCapPct + 1,
+        parseNsmNumber(settings.thresholdHrPct, 75, 95, NSM_DEFAULT_SETTINGS.thresholdHrPct)
+    );
     return {
-        easyHrCapPct: parseNsmNumber(settings.easyHrCapPct, 50, 85, NSM_DEFAULT_SETTINGS.easyHrCapPct),
-        thresholdHrPct: parseNsmNumber(settings.thresholdHrPct, 75, 95, NSM_DEFAULT_SETTINGS.thresholdHrPct),
+        easyHrCapPct,
+        thresholdHrPct: clamp(thresholdHrCapPct, 75, 95),
         currentBlockStart: /^\d{4}-\d{2}-\d{2}$/.test(settings.currentBlockStart || '') ? settings.currentBlockStart : '',
         currentBlockEnd: /^\d{4}-\d{2}-\d{2}$/.test(settings.currentBlockEnd || '') ? settings.currentBlockEnd : '',
         targetRace: String(settings.targetRace || '').slice(0, 80),
@@ -2967,36 +2976,71 @@ function renderNsmMetric(label, value, detail, level = 'muted') {
 }
 
 function renderNsmSettingsForm(nsm) {
+    const easyPct = clamp(Number(nsm.settings.easyHrCapPct) || NSM_DEFAULT_SETTINGS.easyHrCapPct, 50, 85);
+    const thresholdPct = clamp(Math.max(easyPct + 1, Number(nsm.settings.thresholdHrPct) || NSM_DEFAULT_SETTINGS.thresholdHrPct), 75, 95);
+    const hardPct = Math.max(0, 100 - thresholdPct);
+    const subtPct = Math.max(1, thresholdPct - easyPct);
     return `
         <form class="run-plus-nsm-settings" id="${runPlusId('nsm-settings-form')}">
-            <label>
-                <span>Easy HR cap (%)</span>
-                <input name="easyHrCapPct" type="number" min="50" max="85" step="1" value="${esc(nsm.settings.easyHrCapPct)}">
-            </label>
-            <label>
-                <span>Threshold HR cap (%)</span>
-                <input name="thresholdHrPct" type="number" min="75" max="95" step="1" value="${esc(nsm.settings.thresholdHrPct)}">
-            </label>
-            <label>
-                <span>Block start</span>
-                <input name="currentBlockStart" type="date" value="${esc(nsm.settings.currentBlockStart)}">
-            </label>
-            <label>
-                <span>Block end</span>
-                <input name="currentBlockEnd" type="date" value="${esc(nsm.settings.currentBlockEnd)}">
-            </label>
-            <label>
-                <span>Target race</span>
-                <input name="targetRace" type="text" maxlength="80" value="${esc(nsm.settings.targetRace)}" placeholder="Optional">
-            </label>
-            <label>
-                <span>Template</span>
-                <select name="weeklyTemplate">
-                    <option value="standard" ${nsm.settings.weeklyTemplate === 'standard' ? 'selected' : ''}>Standard</option>
-                    <option value="intro" ${nsm.settings.weeklyTemplate === 'intro' ? 'selected' : ''}>Intro</option>
-                    <option value="marathon" ${nsm.settings.weeklyTemplate === 'marathon' ? 'selected' : ''}>Marathon</option>
-                </select>
-            </label>
+            <div class="nsm-settings-groups">
+                <div class="nsm-settings-group">
+                    <div class="nsm-settings-group__header">
+                        <span class="nsm-settings-group__icon">🫀</span>
+                        <span class="nsm-settings-group__title">Heart Rate Zones</span>
+                    </div>
+                    <div class="nsm-settings-group__fields">
+                        <label>
+                            <span>Easy HR cap (%)</span>
+                            <input name="easyHrCapPct" type="number" min="50" max="85" step="1" value="${esc(nsm.settings.easyHrCapPct)}">
+                        </label>
+                        <label>
+                            <span>Threshold HR cap (%)</span>
+                            <input name="thresholdHrPct" type="number" min="75" max="95" step="1" value="${esc(nsm.settings.thresholdHrPct)}">
+                        </label>
+                        <div class="nsm-hr-zone-preview" title="HR zone distribution based on current settings">
+                            <div class="nsm-hr-zone-preview__segment nsm-hr-zone-preview__segment--easy" style="flex:${easyPct}">Easy ≤${easyPct}%</div>
+                            <div class="nsm-hr-zone-preview__segment nsm-hr-zone-preview__segment--subt" style="flex:${subtPct}">SubT ${easyPct}–${thresholdPct}%</div>
+                            <div class="nsm-hr-zone-preview__segment nsm-hr-zone-preview__segment--hard" style="flex:${hardPct}">${thresholdPct}%+</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="nsm-settings-group">
+                    <div class="nsm-settings-group__header">
+                        <span class="nsm-settings-group__icon">📅</span>
+                        <span class="nsm-settings-group__title">Training Block</span>
+                    </div>
+                    <div class="nsm-settings-group__fields">
+                        <label>
+                            <span>Block start</span>
+                            <input name="currentBlockStart" type="date" value="${esc(nsm.settings.currentBlockStart)}">
+                        </label>
+                        <label>
+                            <span>Block end</span>
+                            <input name="currentBlockEnd" type="date" value="${esc(nsm.settings.currentBlockEnd)}">
+                        </label>
+                        <label>
+                            <span>Target race</span>
+                            <input name="targetRace" type="text" maxlength="80" value="${esc(nsm.settings.targetRace)}" placeholder="Optional">
+                        </label>
+                    </div>
+                </div>
+                <div class="nsm-settings-group">
+                    <div class="nsm-settings-group__header">
+                        <span class="nsm-settings-group__icon">📋</span>
+                        <span class="nsm-settings-group__title">Session Config</span>
+                    </div>
+                    <div class="nsm-settings-group__fields">
+                        <label>
+                            <span>Weekly template</span>
+                            <select name="weeklyTemplate">
+                                <option value="standard" ${nsm.settings.weeklyTemplate === 'standard' ? 'selected' : ''}>Standard</option>
+                                <option value="intro" ${nsm.settings.weeklyTemplate === 'intro' ? 'selected' : ''}>Intro</option>
+                                <option value="marathon" ${nsm.settings.weeklyTemplate === 'marathon' ? 'selected' : ''}>Marathon</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+            </div>
             <div class="run-plus-nsm-actions">
                 <button type="submit">Save settings</button>
                 <button type="button" id="${runPlusId('nsm-settings-reset')}">Reset</button>
@@ -3005,37 +3049,107 @@ function renderNsmSettingsForm(nsm) {
     `;
 }
 
+function nsmScoreColor(score) {
+    if (score >= 82) return '#16a34a';
+    if (score >= 55) return '#f59e0b';
+    return '#dc2626';
+}
+
+function nsmScoreLevel(score) {
+    if (score >= 82) return 'good';
+    if (score >= 55) return 'warn';
+    return 'risk';
+}
+
+function nsmHeroRingSvg(score) {
+    const r = 45;
+    const circumference = 2 * Math.PI * r;
+    const offset = circumference - (Math.min(score, 100) / 100) * circumference;
+    const color = nsmScoreColor(score);
+    return `
+        <div class="nsm-hero-ring">
+            <svg viewBox="0 0 100 100">
+                <circle class="nsm-hero-ring__track" cx="50" cy="50" r="${r}" />
+                <circle class="nsm-hero-ring__fill" cx="50" cy="50" r="${r}"
+                    stroke="${color}"
+                    stroke-dasharray="${circumference}"
+                    style="--nsm-ring-circumference:${circumference};--nsm-ring-target:${offset}" />
+            </svg>
+            <div class="nsm-hero-ring__label">
+                <span class="nsm-hero-ring__score">${score}</span>
+                <span class="nsm-hero-ring__sub" style="color:${color}">/100</span>
+            </div>
+        </div>
+    `;
+}
+
+function formatNsmRangeLabel(startDate, endDate) {
+    if (!startDate || !endDate || startDate === '-' || endDate === '-') return 'active range';
+    return startDate === endDate ? startDate : `${startDate} to ${endDate}`;
+}
+
 function renderNsmCommandCenter(model) {
     const nsm = model.nsm;
     const latestScore = nsm.latestWeek?.score ?? 0;
-    const latestLevel = latestScore >= 82 ? 'good' : latestScore >= 55 ? 'warn' : 'risk';
+    const latestLevel = nsmScoreLevel(latestScore);
+    const latestLabel = nsm.latestWeek?.label || 'No data';
     const easyLevel = nsm.easyDiscipline.overCapRate == null ? 'muted' : nsm.easyDiscipline.overCapRate <= 0.12 ? 'good' : nsm.easyDiscipline.overCapRate <= 0.25 ? 'warn' : 'risk';
     const subTLevel = nsm.recent7.subThresholdShare <= NSM_WEEKLY_TARGETS.subThresholdShareHigh + 0.05 ? 'good' : 'warn';
     const tissueLevel = model.diagnostics.tissueLoad.status.level;
+    const activeRange = formatNsmRangeLabel(model.dateRange.start, model.dateRange.end);
+    const latestDate = model.dateRange.end && model.dateRange.end !== '-' ? model.dateRange.end : '';
+    const recent7Range = latestDate ? formatNsmRangeLabel(addDays(latestDate, -6), latestDate) : activeRange;
+    const blockStart = nsm.settings.currentBlockStart || model.dateRange.start;
+    const blockEnd = nsm.settings.currentBlockEnd || model.dateRange.end;
+    const blockRange = formatNsmRangeLabel(blockStart, blockEnd);
 
     return `
-        <section class="run-plus-nsm-hero">
-            <div class="run-plus-overview-main">
-                <span class="run-plus-kicker">Run Plus · Norwegian Singles Method</span>
-                <h2>NSM Training Control</h2>
-                <p>Tracks whether the active run history is matching a repeatable sub-threshold rhythm: controlled quality work, truly easy recovery, sustainable impact load, and measurable progress.</p>
-                <div class="run-plus-overview-tags">
-                    <span class="run-plus-pill ${nsmScorePillClass(latestScore)}">Weekly score ${latestScore}/100</span>
-                    <span class="run-plus-pill ${pillClassForImpactLevel(tissueLevel)}">${esc(model.diagnostics.tissueLoad.status.label)}</span>
-                    <span class="run-plus-pill ${pillClassForConfidence(model.diagnostics.aerobicEfficiency.confidence)}">HR coverage ${percentLabel(nsm.dataTrust.hrCoverage)}</span>
-                    <span class="run-plus-pill run-plus-pill--muted">HRmax ${Math.round(nsm.hrMax.value)} bpm · ${esc(nsm.hrMax.source)}</span>
+        <section class="nsm-hero-section">
+            <div class="nsm-hero-top">
+                <div class="nsm-hero-ring-wrap">
+                    ${nsmHeroRingSvg(latestScore)}
+                </div>
+                <div class="nsm-hero-info">
+                    <span class="run-plus-kicker">Run Plus · Norwegian Singles Method</span>
+                    <h2 style="margin:0.3rem 0 0.5rem;color:var(--color-text-dark);font-size:1.65rem;line-height:1.15">NSM Training Control</h2>
+                    <p style="margin:0;color:var(--color-text-medium);line-height:1.55;max-width:760px">Tracks whether the active run history is matching a repeatable sub-threshold rhythm: controlled quality work, truly easy recovery, sustainable impact load, and measurable progress.</p>
+                    <div class="nsm-verdict nsm-verdict--${latestLevel}">
+                        ${latestLevel === 'good' ? '✅' : latestLevel === 'warn' ? '⚠️' : '🔴'} ${esc(latestLabel)}
+                    </div>
                 </div>
             </div>
-            <div class="run-plus-nsm-command-grid">
-                ${renderNsmMetric('Recent 7 days', `${nsm.recent7.subThresholdSessions} SubT / ${nsm.recent7.easyRuns} easy`, `${formatNsmDistance(nsm.recent7.totalDistance)} · work share ${percentLabel(nsm.recent7.subThresholdShare)}`, subTLevel)}
-                ${renderNsmMetric('Recent 28 days', `${formatNsmHours(nsm.recent28.subThresholdMinutes)} SubT work`, `${nsm.recent28.longRuns} long runs · ${formatNsmHours(nsm.recent28.totalMinutes)} total`, 'muted')}
-                ${renderNsmMetric('Current block', `${percentLabel(nsm.block.subThresholdShare)} quality`, `${formatNsmDistance(nsm.block.totalDistance)} · ${nsm.block.runs} runs`, nsm.block.subThresholdShare <= 0.30 ? 'good' : 'warn')}
-                ${renderNsmMetric('Easy discipline', nsm.easyDiscipline.overCapRate == null ? '-' : `${percentLabel(nsm.easyDiscipline.overCapRate)} over cap`, `Cap ${Math.round(nsm.easyDiscipline.capBpm)} bpm · ${nsm.easyDiscipline.runs} easy runs`, easyLevel)}
-                ${renderNsmMetric('SubT control', `${nsm.subThreshold.overcooked} overcooked`, `${nsm.dataTrust.intervalAnalyzed}/${nsm.subThreshold.sessions} parsed from laps/streams`, nsm.subThreshold.overcooked ? 'warn' : 'good')}
-                ${renderNsmMetric('Primary focus', nsm.recommendations[0], 'Rule-based read from NSM structure, HR, progress, and tissue load.', tissueLevel)}
+            <div class="nsm-stat-strip">
+                <div class="nsm-stat-primary nsm-stat-primary--subt">
+                    <span class="nsm-stat-primary__label"><span class="nsm-tooltip" data-tooltip="Sub-threshold sessions in the last 7 days (${esc(recent7Range)})">SubT Sessions · Last 7d</span></span>
+                    <span class="nsm-stat-primary__value">${nsm.recent7.subThresholdSessions} SubT / ${nsm.recent7.easyRuns} easy</span>
+                    <span class="nsm-stat-primary__detail">${formatNsmHours(nsm.recent7.totalMinutes)} total · work share ${percentLabel(nsm.recent7.subThresholdShare)}</span>
+                </div>
+                <div class="nsm-stat-primary nsm-stat-primary--easy">
+                    <span class="nsm-stat-primary__label"><span class="nsm-tooltip" data-tooltip="Percentage of easy runs exceeding the HR cap in the current filtered range (${esc(activeRange)})">Easy Discipline · Filtered</span></span>
+                    <span class="nsm-stat-primary__value">${nsm.easyDiscipline.overCapRate == null ? '-' : `${percentLabel(nsm.easyDiscipline.overCapRate)} over cap`}</span>
+                    <span class="nsm-stat-primary__detail">Cap ${Math.round(nsm.easyDiscipline.capBpm)} bpm · ${nsm.easyDiscipline.runs} easy runs</span>
+                </div>
+                <div class="nsm-stat-primary nsm-stat-primary--load">
+                    <span class="nsm-stat-primary__label"><span class="nsm-tooltip" data-tooltip="Sub-threshold sessions flagged as overcooked in the current filtered range (${esc(activeRange)})">SubT Control · Filtered</span></span>
+                    <span class="nsm-stat-primary__value">${nsm.subThreshold.overcooked} overcooked</span>
+                    <span class="nsm-stat-primary__detail">${nsm.dataTrust.intervalAnalyzed}/${nsm.subThreshold.sessions} parsed from laps/streams</span>
+                </div>
+                <div class="nsm-stat-primary nsm-stat-primary--quality">
+                    <span class="nsm-stat-primary__label"><span class="nsm-tooltip" data-tooltip="Share of total training hours that is sub-threshold quality work in the current block (${esc(blockRange)})">Block Quality · Block</span></span>
+                    <span class="nsm-stat-primary__value">${percentLabel(nsm.block.subThresholdShare)} quality</span>
+                    <span class="nsm-stat-primary__detail">${formatNsmHours(nsm.block.subThresholdMinutes)} / ${formatNsmHours(nsm.block.totalMinutes)} · ${nsm.block.runs} runs</span>
+                </div>
+            </div>
+            <div class="nsm-stat-secondary-row">
+                <span class="nsm-stat-secondary">📊 <strong>${formatNsmHours(nsm.recent28.subThresholdMinutes)}</strong> SubT work (28d)</span>
+                <span class="nsm-stat-secondary">🏃 <strong>${nsm.recent28.longRuns}</strong> long runs (28d)</span>
+                <span class="nsm-stat-secondary">⏱ <strong>${formatNsmHours(nsm.recent28.totalMinutes)}</strong> total (28d)</span>
+                <span class="nsm-stat-secondary ${pillClassForConfidence(model.diagnostics.aerobicEfficiency.confidence)}">💓 HR coverage ${percentLabel(nsm.dataTrust.hrCoverage)}</span>
+                <span class="nsm-stat-secondary">HRmax <strong>${Math.round(nsm.hrMax.value)}</strong> bpm · ${esc(nsm.hrMax.source)}</span>
+                <span class="nsm-stat-secondary">🎯 ${esc(nsm.recommendations[0])}</span>
             </div>
             <details class="run-plus-nsm-config">
-                <summary>NSM local settings</summary>
+                <summary>⚙️ NSM local settings</summary>
                 ${renderNsmSettingsForm(nsm)}
             </details>
         </section>
@@ -3044,11 +3158,16 @@ function renderNsmCommandCenter(model) {
 
 function renderNsmWeeklyScore(model) {
     const rows = model.nsm.weekly.slice(-16).reverse();
+    const currentWeek = rows.length ? rows[0].week : null;
     return `
-        <section class="run-plus-module run-plus-module--wide">
+        <section class="run-plus-module run-plus-module--wide nsm-section-animated">
             <div class="run-plus-module-panel">
                 <h3>Weekly Method Score</h3>
-                <p class="run-plus-chart-caption">Quality share uses parsed SubT work minutes when available. Activity-average rows are low-confidence proxies and no longer count the full workout as threshold work.</p>
+                <p class="run-plus-chart-caption">Quality share uses parsed SubT work minutes when available. Activity-average rows are low-confidence proxies and no longer count the full workout as SubT work.</p>
+                <div class="nsm-weekly-chart-card">
+                    <h4>Score & Volume Trend</h4>
+                    <canvas id="${runPlusId('nsm-weekly-score-chart')}"></canvas>
+                </div>
                 <div class="run-plus-table-wrap">
                     <table class="compact-table run-plus-nsm-table">
                         <thead>
@@ -3058,7 +3177,7 @@ function renderNsmWeeklyScore(model) {
                         </thead>
                         <tbody>
                             ${rows.map(row => `
-                                <tr>
+                                <tr class="${row.week === currentWeek ? 'nsm-week-row--current' : ''}">
                                     <td>${esc(row.week)}</td>
                                     <td><span class="run-plus-pill ${nsmScorePillClass(row.score)}">${row.score} · ${esc(row.label)}</span></td>
                                     <td>${formatNsmHours(row.totalMinutes)}</td>
@@ -3070,7 +3189,7 @@ function renderNsmWeeklyScore(model) {
                                     <td>${row.easySessions ? `${row.easyOverCap}/${row.easySessions} over` : '-'}</td>
                                     <td>${formatNsmDistance(row.totalDistance)}</td>
                                 </tr>
-                            `).join('') || '<tr><td colspan="10">No weekly runs in the active filter.</td></tr>'}
+                            `).join('') || '<tr><td colspan="10"><div class="nsm-empty-state"><span class="nsm-empty-state__icon">📊</span><span class="nsm-empty-state__title">No weekly data</span><span class="nsm-empty-state__text">No weekly runs in the active filter.</span></div></td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -3081,19 +3200,40 @@ function renderNsmWeeklyScore(model) {
 
 function renderNsmSubthresholdWorkbench(model) {
     const rows = model.nsm.subThreshold.rows.slice(0, 24);
+    const controlBadge = (status, flags) => {
+        const icon = status === 'overcooked' ? '🔴' : status === 'watch' ? '⚠️' : status === 'proxy_only' ? '📊' : '✅';
+        const cls = status === 'overcooked' ? 'overcooked' : status === 'watch' ? 'watch' : status === 'proxy_only' ? 'proxy' : 'controlled';
+        return `<span class="nsm-control-badge nsm-control-badge--${cls}" title="${esc(flags.join(', '))}">${icon} ${esc(nsmControlLabel(status))}</span>`;
+    };
     return `
-        <section class="run-plus-module run-plus-module--wide">
+        <section class="run-plus-module run-plus-module--wide nsm-section-animated">
             <div class="run-plus-module-panel">
                 <h3>Subthreshold Workbench</h3>
-                <p class="run-plus-chart-caption">SubT rows prioritize work-rep metrics: Manual override, then Strava laps, then on-demand streams, then activity-average proxy.</p>
+                <p class="run-plus-chart-caption">Unless manual work metrics are entered, SubT rows use Strava laps first for reps, work time, work pace, and pace consistency. Deep HR analysis adds on-demand streams for HR response and recovery; activity-average proxies are last-resort fallbacks.</p>
+                <div class="nsm-subt-charts">
+                    <article class="nsm-subt-chart-card">
+                        <h4>SubT Work Pace Trend</h4>
+                        <p>Work-rep pace per parsed SubT session. Lower min/km is faster; compare similar workout families and read it alongside HR response.</p>
+                        <canvas id="${runPlusId('nsm-subt-pace-chart')}"></canvas>
+                    </article>
+                    <article class="nsm-subt-chart-card">
+                        <h4>HR Response Trend</h4>
+                        <p>Early-to-late rep HR response from Deep HR analysis. Below +6 bpm is controlled; rising trend suggests accumulating fatigue.</p>
+                        <canvas id="${runPlusId('nsm-subt-hr-response-chart')}"></canvas>
+                    </article>
+                </div>
                 <div class="run-plus-table-wrap">
                     <table class="compact-table run-plus-nsm-table">
                         <thead>
                             <tr><th>Date</th><th>Activity</th><th>Type</th><th>Source</th><th>Work</th><th>Work pace</th><th>Work HR</th><th>Pace consistency</th><th>HR source</th><th>RPE</th><th>Lactate</th><th>Control</th></tr>
                         </thead>
                         <tbody>
-                            ${rows.map(row => `
-                                <tr>
+                            ${rows.map(row => {
+                                const overcookedCallout = row.controlStatus === 'overcooked' && row.controlFlags.length
+                                    ? `</tr><tr><td colspan="12"><div class="nsm-overcooked-callout"><strong>⚠ Overcooked flags:</strong> ${esc(row.controlFlags.join(' · '))}</div></td>`
+                                    : '';
+                                return `
+                                <tr class="nsm-row--subt">
                                     <td>${esc(row.date)}</td>
                                     <td>${row.run?.id ? `<a href="/html/activity-router.html?id=${encodeURIComponent(row.run.id)}" target="_blank" rel="noopener noreferrer">${esc(row.name)}</a>` : esc(row.name)}</td>
                                     <td><span class="run-plus-pill ${nsmTagPillClass(row.tag)}">${esc(nsmTagLabel(row.tag))}</span></td>
@@ -3108,9 +3248,9 @@ function renderNsmSubthresholdWorkbench(model) {
                                     <td>${esc(formatNsmHrSource(row))}</td>
                                     <td>${Number.isFinite(row.input.rpe) ? row.input.rpe : '-'}</td>
                                     <td>${Number.isFinite(row.input.lactate) ? row.input.lactate.toFixed(1) : '-'}</td>
-                                    <td><span class="run-plus-pill ${nsmControlPillClass(row.controlStatus)}" title="${esc(row.controlFlags.join(', '))}">${esc(nsmControlLabel(row.controlStatus))}</span></td>
-                                </tr>
-                            `).join('') || '<tr><td colspan="12">No sub-threshold sessions detected. Use the registry below to tag NSM workouts.</td></tr>'}
+                                    <td>${controlBadge(row.controlStatus, row.controlFlags)}</td>
+                                ${overcookedCallout}</tr>
+                            `}).join('') || '<tr><td colspan="12"><div class="nsm-empty-state"><span class="nsm-empty-state__icon">🏃‍♂️</span><span class="nsm-empty-state__title">No sub-threshold sessions</span><span class="nsm-empty-state__text">No sub-threshold sessions detected. Use the registry below to tag NSM workouts.</span></div></td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -3123,8 +3263,23 @@ function renderNsmIntervalAnalysis(model) {
     const rows = model.nsm.subThreshold.rows
         .filter(row => row.intervalAnalysis && row.intervalAnalysis.source !== 'activity_average')
         .slice(0, 12);
+
+    const hrGauge = (value) => {
+        if (!Number.isFinite(value)) return '<span style="color:var(--color-text-light)">needs streams</span>';
+        const absVal = Math.abs(value);
+        const level = absVal <= 5 ? 'good' : absVal <= 8 ? 'warn' : 'risk';
+        const pct = Math.min(absVal / 12 * 100, 100);
+        return `<div class="nsm-hr-gauge"><div class="nsm-hr-gauge__bar"><div class="nsm-hr-gauge__fill nsm-hr-gauge__fill--${level}" style="width:${pct}%"></div></div><span class="nsm-hr-gauge__value">${formatSigned(value, 1)}</span></div>`;
+    };
+
+    const confidenceDots = (level) => {
+        const map = { high: 4, medium: 3, low: 2, unavailable: 0 };
+        const filled = map[level] || 0;
+        return `<span class="nsm-confidence-dots">${Array.from({length: 4}, (_, i) => `<span class="nsm-confidence-dot ${i < filled ? 'nsm-confidence-dot--filled' : ''}"></span>`).join('')}</span>`;
+    };
+
     return `
-        <section class="run-plus-module run-plus-module--wide">
+        <section class="run-plus-module run-plus-module--wide nsm-section-animated">
             <div class="run-plus-module-panel">
                 <h3>SubT Interval Analysis</h3>
                 <p class="run-plus-chart-caption">Parsed work reps are used for SubT progress and cost checks. Recovery and warmup/cooldown remain part of total load, but not SubT work minutes.</p>
@@ -3137,8 +3292,13 @@ function renderNsmIntervalAnalysis(model) {
                             ${rows.map(row => {
                                 const summary = row.intervalAnalysis.summary || {};
                                 const overlay = getNsmRowHrOverlay(row);
+                                const hrResponse = overlay?.source === 'streams' && Number.isFinite(overlay.hrResponse) ? overlay.hrResponse : null;
+                                const recoveryDrop = formatNsmRecoveryDrop(row);
+                                const recoveryArrow = recoveryDrop !== 'needs streams' && recoveryDrop !== '-'
+                                    ? (parseFloat(recoveryDrop) >= 10 ? '<span style="color:#16a34a">↓</span>' : '<span style="color:#dc2626">↑</span>')
+                                    : '';
                                 return `
-                                    <tr>
+                                    <tr class="nsm-row--subt">
                                         <td>${esc(row.date)}</td>
                                         <td>${row.run?.id ? `<a href="/html/activity-router.html?id=${encodeURIComponent(row.run.id)}" target="_blank" rel="noopener noreferrer">${esc(row.name)}</a>` : esc(row.name)}</td>
                                         <td><span class="run-plus-pill ${nsmIntervalSourcePillClass(row.intervalAnalysis.source)}">${esc(formatNsmCombinedIntervalSource(row))}</span></td>
@@ -3146,14 +3306,14 @@ function renderNsmIntervalAnalysis(model) {
                                         <td>${formatNsmHours(summary.workMinutes)}</td>
                                         <td>${summary.avgWorkPaceSec ? paceLabel(summary.avgWorkPaceSec) : '-'}</td>
                                         <td>${Number.isFinite(summary.avgWorkHr) ? `${Math.round(summary.avgWorkHr)} bpm` : '-'}</td>
-                                        <td>${esc(formatNsmHrResponse(row))}</td>
+                                        <td>${hrGauge(hrResponse)}</td>
                                         <td>${esc(formatNsmHrMetric(row))}</td>
-                                        <td>${esc(formatNsmRecoveryDrop(row))}</td>
-                                        <td><span class="run-plus-pill ${pillClassForConfidence(overlay?.hrConfidence || summary.hrConfidence)}">${esc(overlay?.hrConfidence || summary.hrConfidence || 'unavailable')}</span></td>
+                                        <td>${recoveryArrow} ${esc(recoveryDrop)}</td>
+                                        <td>${confidenceDots(overlay?.hrConfidence || summary.hrConfidence || 'unavailable')}</td>
                                         <td>${row.intervalAnalysis.warnings?.length ? esc(row.intervalAnalysis.warnings.join('; ')) : esc(nsmTemplateLabel(row.input.template))}</td>
                                     </tr>
                                 `;
-                            }).join('') || '<tr><td colspan="12">No interval-level SubT analysis yet. Use Analyze intervals in the Session Registry.</td></tr>'}
+                            }).join('') || '<tr><td colspan="12"><div class="nsm-empty-state"><span class="nsm-empty-state__icon">🔬</span><span class="nsm-empty-state__title">No interval analysis</span><span class="nsm-empty-state__text">No interval-level SubT analysis yet. Use Analyze intervals in the Session Registry.</span></div></td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -3166,7 +3326,7 @@ function renderNsmEasyDiscipline(model) {
     const easyRows = model.nsm.rows.filter(row => row.includeInNsm && row.isEasy).slice(0, 24);
     const easy = model.nsm.easyDiscipline;
     return `
-        <section class="run-plus-module run-plus-module--wide">
+        <section class="run-plus-module run-plus-module--wide nsm-section-animated">
             <div class="run-plus-module-panel">
                 <h3>Easy Discipline</h3>
                 <div class="run-plus-nsm-split">
@@ -3174,26 +3334,26 @@ function renderNsmEasyDiscipline(model) {
                         <p class="run-plus-chart-caption">Easy cap is ${Math.round(model.nsm.easyHrCap)} bpm (${model.nsm.settings.easyHrCapPct}% of HRmax). Runs above that cap are not automatically bad, but they weaken the repeatable NSM rhythm when they become common.</p>
                         <div class="run-plus-nsm-mini-grid">
                             ${renderNsmMetric('Easy runs', `${easy.runs}`, `${easy.overCap} over cap · ${easy.hrValidRuns} HR-valid`, easy.overCap ? 'warn' : 'good')}
-                            ${renderNsmMetric('Avg easy HR', Number.isFinite(easy.avgHr) ? `${Math.round(easy.avgHr)} bpm` : '-', Number.isFinite(easy.avgHrPctMax) ? `${percentLabel(easy.avgHrPctMax)} of HRmax` : 'Needs HR data', Number.isFinite(easy.avgHrPctMax) && easy.avgHrPctMax <= model.nsm.settings.easyHrCapPct / 100 ? 'good' : 'warn')}
-                            ${renderNsmMetric('HR% distribution', Number.isFinite(easy.hrPctP50) ? `P50 ${percentLabel(easy.hrPctP50)}` : '-', Number.isFinite(easy.hrPctP25) ? `P25 ${percentLabel(easy.hrPctP25)} · P75 ${percentLabel(easy.hrPctP75)}` : 'No HR distribution', 'muted')}
+                            ${renderNsmMetric('Avg easy HR', Number.isFinite(easy.avgHr) ? `${Math.round(easy.avgHr)} bpm` : '-', Number.isFinite(easy.avgHrPctMax) ? `${nsmHrPercentLabel(easy.avgHrPctMax)} of HRmax` : 'Needs HR data', Number.isFinite(easy.avgHrPctMax) && easy.avgHrPctMax <= model.nsm.settings.easyHrCapPct / 100 ? 'good' : 'warn')}
+                            ${renderNsmMetric('HR% distribution', Number.isFinite(easy.hrPctP50) ? `P50 ${nsmHrPercentLabel(easy.hrPctP50)}` : '-', Number.isFinite(easy.hrPctP25) ? `P25 ${nsmHrPercentLabel(easy.hrPctP25)} · P75 ${nsmHrPercentLabel(easy.hrPctP75)}` : 'No HR distribution', 'muted')}
                             ${renderNsmMetric('Median easy pace', Number.isFinite(easy.medianPace) ? paceLabel(easy.medianPace) : '-', `Cap source ${Math.round(model.nsm.hrMax.value)} bpm · ${model.nsm.hrMax.source}`, 'muted')}
                         </div>
                     </div>
-                    <div class="run-plus-table-wrap">
-                        <table class="compact-table run-plus-nsm-table">
+                    <div class="run-plus-table-wrap nsm-easy-runs-table-wrap">
+                        <table class="compact-table run-plus-nsm-table nsm-easy-runs-table">
                             <thead><tr><th>Date</th><th>Activity</th><th>Distance</th><th>Pace</th><th>HR</th><th>HR%max</th><th>Status</th></tr></thead>
                             <tbody>
                                 ${easyRows.map(row => `
-                                    <tr>
+                                    <tr class="nsm-row--easy">
                                         <td>${esc(row.date)}</td>
                                         <td>${esc(row.name)}</td>
                                         <td>${formatNsmDistance(row.distanceKm)}</td>
                                         <td>${paceLabel(row.pace)}</td>
                                         <td>${Number.isFinite(row.avgHr) ? `${Math.round(row.avgHr)} bpm` : '-'}</td>
-                                        <td>${Number.isFinite(row.easyHrPctMax) ? percentLabel(row.easyHrPctMax) : '-'}</td>
+                                        <td>${Number.isFinite(row.easyHrPctMax) ? nsmHrPercentLabel(row.easyHrPctMax) : '-'}</td>
                                         <td>${row.easyOverCap ? '<span class="run-plus-pill run-plus-pill--warn">over cap</span>' : '<span class="run-plus-pill run-plus-pill--good">easy</span>'}</td>
                                     </tr>
-                                `).join('') || '<tr><td colspan="7">No easy runs detected in the active filter.</td></tr>'}
+                                `).join('') || '<tr><td colspan="7"><div class="nsm-empty-state"><span class="nsm-empty-state__icon">🏃</span><span class="nsm-empty-state__title">No easy runs</span><span class="nsm-empty-state__text">No easy runs detected in the active filter.</span></div></td></tr>'}
                             </tbody>
                         </table>
                     </div>
@@ -3223,7 +3383,7 @@ function renderNsmEasyDiscipline(model) {
 function renderNsmTestsAndAnchors(model) {
     const nsm = model.nsm;
     return `
-        <section class="run-plus-module run-plus-module--wide">
+        <section class="run-plus-module run-plus-module--wide nsm-section-animated">
             <div class="run-plus-module-panel">
                 <h3>Test & Pace Anchors</h3>
                 <div class="run-plus-nsm-split">
@@ -3244,7 +3404,7 @@ function renderNsmTestsAndAnchors(model) {
                                 <thead><tr><th>Date</th><th>Type</th><th>Distance</th><th>Time</th><th>Pace</th><th></th></tr></thead>
                                 <tbody>
                                     ${nsm.tests.map(test => `
-                                        <tr>
+                                        <tr class="nsm-row--race">
                                             <td>${esc(test.date)}</td>
                                             <td>${esc(test.type)}</td>
                                             <td>${formatNsmDistance(test.distanceKm)}</td>
@@ -3252,7 +3412,7 @@ function renderNsmTestsAndAnchors(model) {
                                             <td>${paceLabel(test.timeSec / test.distanceKm)}</td>
                                             <td><button type="button" class="run-plus-nsm-link-button" data-remove-nsm-test="${esc(test.id)}">Remove</button></td>
                                         </tr>
-                                    `).join('') || '<tr><td colspan="6">No manual tests saved. Race-like Strava activities are still used as weak anchors.</td></tr>'}
+                                    `).join('') || '<tr><td colspan="6"><div class="nsm-empty-state"><span class="nsm-empty-state__icon">🏁</span><span class="nsm-empty-state__title">No tests</span><span class="nsm-empty-state__text">No manual tests saved. Race-like Strava activities are still used as weak anchors.</span></div></td></tr>'}
                                 </tbody>
                             </table>
                         </div>
@@ -3263,22 +3423,59 @@ function renderNsmTestsAndAnchors(model) {
     `;
 }
 
+function getNsmProgressCostStatus(model) {
+    const tissueLevel = model.diagnostics.tissueLoad.status.level;
+    const loadStatus = model.diagnostics.loadReadiness.state.status;
+    const aerobicStatus = model.diagnostics.aerobicEfficiency.trend.status;
+    const subTShare = model.nsm.block.subThresholdShare;
+
+    if (tissueLevel === 'risk' || loadStatus === 'risk') {
+        return {
+            level: 'overcooked',
+            icon: '🔴',
+            label: 'Cost constrained',
+            detail: tissueLevel === 'risk'
+                ? 'Tissue capacity is the limiting signal. Reduce impact load before adding more quality.'
+                : 'Acute fatigue is high. Keep quality conservative until recovery improves.'
+        };
+    }
+    if (tissueLevel === 'warn' || loadStatus === 'build' || aerobicStatus === 'declining' || subTShare > 0.30) {
+        return {
+            level: 'watch',
+            icon: '⚠️',
+            label: 'Cost watch',
+            detail: 'Progress can continue, but keep easy discipline and tissue load stable before adding another quality session.'
+        };
+    }
+    return {
+        level: 'controlled',
+        icon: '✅',
+        label: aerobicStatus === 'improving' ? 'Clean progress' : 'Cost controlled',
+        detail: 'Progress and cost signals are currently compatible with repeatable NSM work.'
+    };
+}
+
 function renderNsmProgressCost(model) {
     const d = model.diagnostics;
     const nsm = model.nsm;
+    const costStatus = getNsmProgressCostStatus(model);
     return `
-        <section class="run-plus-module run-plus-module--wide">
+        <section class="run-plus-module run-plus-module--wide nsm-section-animated">
             <div class="run-plus-module-panel">
                 <h3>Progress vs Cost</h3>
                 <div class="run-plus-nsm-mini-grid">
                     ${renderNsmMetric('Aerobic trend', d.aerobicEfficiency.trend.status, d.aerobicEfficiency.trend.improvementPct == null ? 'Not enough HR-valid data' : `${formatSigned(d.aerobicEfficiency.trend.improvementPct * 100)}% HR-normalized change`, d.aerobicEfficiency.trend.status === 'improving' ? 'good' : d.aerobicEfficiency.trend.status === 'declining' ? 'warn' : 'muted')}
                     ${renderNsmMetric('Metabolic load', d.loadReadiness.state.label, d.loadReadiness.state.narrative, d.loadReadiness.state.status === 'risk' ? 'risk' : d.loadReadiness.state.status === 'build' ? 'warn' : 'good')}
                     ${renderNsmMetric('Tissue cost', d.tissueLoad.status.label, `${safeFixed(d.tissueLoad.recent7Impact, 0)} ILP · ${safeFixed(d.tissueLoad.capacityRatio, 2)}x capacity`, d.tissueLoad.status.level)}
-                    ${renderNsmMetric('NSM block quality', `${percentLabel(nsm.block.subThresholdShare)} SubT work`, `${nsm.block.easyRuns} easy · ${nsm.block.longRuns} long`, nsm.block.subThresholdShare <= 0.30 ? 'good' : 'warn')}
+                    ${renderNsmMetric('NSM block quality', `${percentLabel(nsm.block.subThresholdShare)} SubT work`, `${formatNsmHours(nsm.block.subThresholdMinutes)} / ${formatNsmHours(nsm.block.totalMinutes)} total · ${nsm.block.easyRuns} easy · ${nsm.block.longRuns} long`, nsm.block.subThresholdShare <= 0.30 ? 'good' : 'warn')}
                 </div>
                 <div class="run-plus-resolver-panel">
+                    <div class="nsm-progress-status-row">
+                        <span class="nsm-control-badge nsm-control-badge--${esc(costStatus.level)}">${esc(costStatus.icon)} ${esc(costStatus.label)}</span>
+                        <span class="nsm-progress-status-copy">${esc(costStatus.detail)}</span>
+                    </div>
                     <p><strong>Current decision:</strong> ${esc(nsm.recommendations[0])}</p>
-                    <p>This module intentionally pairs progress signals with cost signals. NSM should make threshold work repeatable; if aerobic trend improves while easy discipline and tissue capacity deteriorate, the build is not clean.</p>
+                    <p>This module intentionally pairs progress signals with cost signals. NSM should make sub-threshold work repeatable; if aerobic trend improves while easy discipline and tissue capacity deteriorate, the build is not clean.</p>
                 </div>
             </div>
         </section>
@@ -3287,25 +3484,30 @@ function renderNsmProgressCost(model) {
 
 function renderNsmSessionRegistry(model) {
     const rows = model.nsm.rows;
+    const tagClass = (tag) => {
+        const map = { easy: 'nsm-row--easy', subt_short: 'nsm-row--subt', subt_medium: 'nsm-row--subt', subt_long: 'nsm-row--subt', long: 'nsm-row--long', race: 'nsm-row--race', other: 'nsm-row--other', excluded: 'nsm-row--excluded' };
+        return map[tag] || '';
+    };
     return `
-        <section class="run-plus-module run-plus-module--wide">
+        <section class="run-plus-module run-plus-module--wide nsm-section-animated">
             <div class="run-plus-module-panel">
                 <h3>NSM Session Registry</h3>
-                <div class="run-plus-export-buttons">
+                <div class="run-plus-export-buttons" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
                     <button id="${runPlusId('nsm-registry-save')}" type="button">Save registry</button>
+                    <span class="nsm-unsaved-badge nsm-unsaved-badge--hidden" id="${runPlusId('nsm-unsaved-badge')}">● Unsaved changes</span>
                     <button id="${runPlusId('nsm-export-csv')}" type="button">Export NSM CSV</button>
                     <button id="${runPlusId('nsm-export-json')}" type="button">Export NSM JSON</button>
                 </div>
                 <div class="run-plus-table-wrap">
                     <table class="compact-table run-plus-nsm-registry-table">
-                        <thead>
+                        <thead class="nsm-sticky-thead">
                             <tr>
                                 <th>Include</th><th>Date</th><th>Activity</th><th>Auto guess</th><th>Tag</th><th>Template</th><th>Work pace</th><th>Work HR</th><th>Work min</th><th>Analysis</th><th>RPE</th><th>Lactate</th><th>Pain</th><th>Next day</th><th>Notes</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${rows.map(row => `
-                                <tr class="run-plus-nsm-registry-row" data-activity-id="${esc(row.activityId)}" data-auto-tag="${esc(row.autoTag)}" data-is-subthreshold="${row.isSubThreshold ? 'true' : 'false'}">
+                                <tr class="run-plus-nsm-registry-row ${tagClass(row.tag)}" data-activity-id="${esc(row.activityId)}" data-auto-tag="${esc(row.autoTag)}" data-is-subthreshold="${row.isSubThreshold ? 'true' : 'false'}">
                                     <td><input type="checkbox" data-nsm-field="includeInNsm" ${row.includeInNsm ? 'checked' : ''}></td>
                                     <td>${esc(row.date)}</td>
                                     <td>${row.run?.id ? `<a href="/html/activity-router.html?id=${encodeURIComponent(row.run.id)}" target="_blank" rel="noopener noreferrer">${esc(row.name)}</a>` : esc(row.name)}</td>
@@ -3332,7 +3534,7 @@ function renderNsmSessionRegistry(model) {
                                     <td><input data-nsm-field="nextDayScore" type="number" min="0" max="10" step="1" value="${Number.isFinite(row.input.nextDayScore) ? esc(row.input.nextDayScore) : ''}"></td>
                                     <td><input data-nsm-field="notes" type="text" maxlength="240" value="${esc(row.input.notes)}"></td>
                                 </tr>
-                            `).join('') || '<tr><td colspan="15">No runs in the active filter.</td></tr>'}
+                            `).join('') || '<tr><td colspan="15"><div class="nsm-empty-state"><span class="nsm-empty-state__icon">📝</span><span class="nsm-empty-state__title">No sessions</span><span class="nsm-empty-state__text">No runs in the active filter.</span></div></td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -3355,10 +3557,10 @@ function renderNsmRulesTrust(model) {
                 </summary>
                 <div class="run-plus-collapsible__body">
                     <div class="run-plus-field-groups">
-                        <article class="run-plus-field-group"><span>SubT</span><h4>Sub-threshold</h4><p>Name matches threshold/tempo/subT/NSM/umbral, Strava workout signal, or manual tag. Short/medium/long is inferred from duration/name.</p></article>
-                        <article class="run-plus-field-group"><span>Easy</span><h4>Easy discipline</h4><p>Manual tag first, then Easy/Recovery classifier, name cues, or average HR below the local easy cap.</p></article>
+                        <article class="run-plus-field-group"><span>SubT</span><h4>Sub-threshold</h4><p>Manual tag first, then name cues such as threshold/tempo/subT/NSM/umbral, or Strava workout signal when activity-level HR sits near the local threshold range. Short/medium/long is inferred from duration/name, or set directly by manual tag.</p></article>
+                        <article class="run-plus-field-group"><span>Easy</span><h4>Easy discipline</h4><p>Manual tag first, then Easy/Recovery classifier, name cues, or activity-level average HR below the local easy cap.</p></article>
                         <article class="run-plus-field-group"><span>Long</span><h4>Long run</h4><p>Manual tag, name cue, Strava long-run signal, distance >= 16 km, or a clearly longest weekly run.</p></article>
-                        <article class="run-plus-field-group"><span>Trust</span><h4>Confidence</h4><p>SubT intervals use manual work overrides, cached lap/stream parsing, template proxy, or activity-average fallback. Activity-average SubT rows are low confidence.</p></article>
+                        <article class="run-plus-field-group"><span>Trust</span><h4>Confidence</h4><p>SubT structure uses manual work overrides, Strava laps, or activity-average fallback. Deep HR analysis adds a separate streams overlay for HR response and recovery. Activity-average SubT rows are low confidence.</p></article>
                     </div>
                 </div>
             </details>
@@ -3369,7 +3571,7 @@ function renderNsmRulesTrust(model) {
                     <span class="run-plus-pill run-plus-pill--muted">${nsm.dataTrust.intervalAnalyzed} interval parsed</span>
                 </summary>
                 <div class="run-plus-collapsible__body">
-                    <p class="run-plus-chart-caption">NSM interval analysis is local and on demand. Laps provide the fast reps/pace path; Deep HR analysis uses streams for HR response and recovery drop. Easy and long runs still use activity-level summaries.</p>
+                    <p class="run-plus-chart-caption">NSM interval analysis is local and on demand. Laps provide the default reps and pace structure; Deep HR analysis uses streams for HR response and recovery drop. Easy and long runs still use activity-level summaries.</p>
                 </div>
             </details>
         </section>
@@ -4327,7 +4529,7 @@ function renderNsmEasyCharts(model) {
         const lineData = value => Number.isFinite(value) ? [{ x: xStart, y: value }, { x: xEnd, y: value }] : [];
         const percentileLine = (label, pct, color) => ({
             type: 'line',
-            label,
+            label: Number.isFinite(pct) ? `${label} ${nsmHrPercentLabel(pct)}` : label,
             data: lineData(Number.isFinite(pct) ? pct * model.nsm.hrMax.value : null),
             borderColor: color,
             borderDash: [5, 5],
@@ -4350,7 +4552,7 @@ function renderNsmEasyCharts(model) {
                     },
                     {
                         type: 'line',
-                        label: Number.isFinite(easy.avgHrPctMax) ? `Avg HR ${percentLabel(easy.avgHrPctMax)} HRmax` : 'Avg HR',
+                        label: Number.isFinite(easy.avgHrPctMax) ? `Avg HR ${nsmHrPercentLabel(easy.avgHrPctMax)} HRmax` : 'Avg HR',
                         data: lineData(easy.avgHr),
                         borderColor: runColor,
                         borderWidth: 2,
@@ -4372,7 +4574,7 @@ function renderNsmEasyCharts(model) {
                             label: context => {
                                 const raw = context.raw;
                                 if (!raw?.row) return `${context.dataset.label}: ${Math.round(raw?.y || 0)} bpm`;
-                                return `${raw.row.date} · ${raw.row.name}: ${paceLabel(raw.row.pace)}, ${Math.round(raw.row.avgHr)} bpm (${percentLabel(raw.row.easyHrPctMax)})${raw.row.easyOverCap ? ' · over cap' : ''}`;
+                                return `${raw.row.date} · ${raw.row.name}: ${paceLabel(raw.row.pace)}, ${Math.round(raw.row.avgHr)} bpm (${nsmHrPercentLabel(raw.row.easyHrPctMax)})${raw.row.easyOverCap ? ' · over cap' : ''}`;
                             }
                         }
                     }
@@ -4395,6 +4597,235 @@ function renderNsmEasyCharts(model) {
                 }
             }
         }));
+    }
+}
+
+function destroyNsmWeeklyScoreChart() {
+    if (window.runPlusNsmWeeklyScoreChart) {
+        try { window.runPlusNsmWeeklyScoreChart.destroy(); } catch (_e) { /* */ }
+        window.runPlusNsmWeeklyScoreChart = null;
+    }
+}
+
+function renderNsmWeeklyScoreChart(model) {
+    destroyNsmWeeklyScoreChart();
+    if (typeof Chart === 'undefined') return;
+    const canvas = document.getElementById(runPlusId('nsm-weekly-score-chart'));
+    if (!canvas) return;
+
+    const rows = [...(model.nsm.weekly || [])].slice(-16);
+    if (!rows.length) return;
+
+    const textColor = getCssColor('--color-text-medium', '#667085');
+    const borderColor = getCssColor('--color-border', '#e5e7eb');
+    const runColor = getCssColor('--color-sport-run', '#fc5200');
+
+    window.runPlusNsmWeeklyScoreChart = new Chart(canvas.getContext('2d'), {
+        data: {
+            labels: rows.map(r => r.week),
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Total hours',
+                    data: rows.map(r => +(r.totalMinutes / 60).toFixed(2)),
+                    backgroundColor: 'rgba(252, 82, 0, 0.15)',
+                    borderColor: 'rgba(252, 82, 0, 0.35)',
+                    borderWidth: 1,
+                    yAxisID: 'y1',
+                    order: 2
+                },
+                {
+                    type: 'line',
+                    label: 'Method Score',
+                    data: rows.map(r => r.score),
+                    borderColor: runColor,
+                    backgroundColor: 'rgba(252, 82, 0, 0.08)',
+                    fill: true,
+                    borderWidth: 2.5,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    tension: 0.2,
+                    yAxisID: 'y',
+                    order: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: textColor, boxWidth: 10 } },
+                tooltip: {
+                    callbacks: {
+                        afterBody: (items) => {
+                            const idx = items?.[0]?.dataIndex;
+                            const row = Number.isInteger(idx) ? rows[idx] : null;
+                            if (!row) return [];
+                            return [
+                                `Label: ${row.label}`,
+                                `SubT: ${row.subThresholdSessions} · Easy: ${row.easySessions}`,
+                                `Quality share: ${percentLabel(row.subThresholdShare)}`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { color: textColor }, grid: { color: borderColor } },
+                y: {
+                    type: 'linear',
+                    position: 'left',
+                    min: 0,
+                    max: 100,
+                    ticks: { color: textColor },
+                    grid: { color: borderColor },
+                    title: { display: true, text: 'Score', color: textColor }
+                },
+                y1: {
+                    type: 'linear',
+                    position: 'right',
+                    beginAtZero: true,
+                    ticks: { color: textColor },
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Hours', color: textColor }
+                }
+            }
+        }
+    });
+}
+
+function destroyNsmSubtCharts() {
+    ['runPlusNsmSubtPaceChart', 'runPlusNsmSubtHrChart'].forEach(key => {
+        if (window[key]) {
+            try { window[key].destroy(); } catch (_e) { /* */ }
+            window[key] = null;
+        }
+    });
+}
+
+function renderNsmSubtCharts(model) {
+    destroyNsmSubtCharts();
+    if (typeof Chart === 'undefined') return;
+
+    const subtRows = model.nsm.subThreshold.rows
+        .filter(r => r.intervalAnalysis && r.intervalAnalysis.source !== 'activity_average')
+        .sort((a, b) => a.date.localeCompare(b.date));
+    if (!subtRows.length) return;
+
+    const textColor = getCssColor('--color-text-medium', '#667085');
+    const borderColor = getCssColor('--color-border', '#e5e7eb');
+    const runColor = getCssColor('--color-sport-run', '#fc5200');
+
+    // SubT Pace Trend
+    const paceCanvas = document.getElementById(runPlusId('nsm-subt-pace-chart'));
+    const paceRows = subtRows.filter(r => r.intervalAnalysis?.summary?.avgWorkPaceSec > 0);
+    if (paceCanvas && paceRows.length) {
+        window.runPlusNsmSubtPaceChart = new Chart(paceCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: paceRows.map(r => r.date),
+                datasets: [{
+                    label: 'Work pace (min/km)',
+                    data: paceRows.map(r => +(r.intervalAnalysis.summary.avgWorkPaceSec / 60).toFixed(3)),
+                    borderColor: runColor,
+                    backgroundColor: 'rgba(252, 82, 0, 0.08)',
+                    fill: true,
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    tension: 0.2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: textColor, boxWidth: 10 } },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => `${ctx.dataset.label}: ${paceLabel(Number(ctx.raw) * 60)}`,
+                            afterBody: items => {
+                                const idx = items?.[0]?.dataIndex;
+                                const r = Number.isInteger(idx) ? paceRows[idx] : null;
+                                if (!r) return [];
+                                return [`${r.name}`, `HR: ${Number.isFinite(r.intervalAnalysis?.summary?.avgWorkHr) ? Math.round(r.intervalAnalysis.summary.avgWorkHr) + ' bpm' : '-'}`];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: textColor, maxTicksLimit: 8 }, grid: { color: borderColor } },
+                    y: {
+                        reverse: true,
+                        ticks: { color: textColor, callback: v => paceLabel(Number(v) * 60) },
+                        grid: { color: borderColor },
+                        title: { display: true, text: 'min/km', color: textColor }
+                    }
+                }
+            }
+        });
+    }
+
+    // HR Response Trend
+    const hrCanvas = document.getElementById(runPlusId('nsm-subt-hr-response-chart'));
+    const hrRows = subtRows.filter(r => {
+        const overlay = getNsmRowHrOverlay(r);
+        return overlay?.source === 'streams' && Number.isFinite(overlay.hrResponse);
+    });
+    if (hrCanvas && hrRows.length) {
+        const hrData = hrRows.map(r => {
+            const overlay = getNsmRowHrOverlay(r);
+            return { date: r.date, name: r.name, value: +overlay.hrResponse.toFixed(1) };
+        });
+        window.runPlusNsmSubtHrChart = new Chart(hrCanvas.getContext('2d'), {
+            data: {
+                labels: hrData.map(d => d.date),
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'HR response (bpm)',
+                        data: hrData.map(d => d.value),
+                        backgroundColor: hrData.map(d => d.value <= 5 ? 'rgba(22, 163, 74, 0.35)' : d.value <= 8 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(220, 38, 38, 0.35)'),
+                        borderColor: hrData.map(d => d.value <= 5 ? '#16a34a' : d.value <= 8 ? '#f59e0b' : '#dc2626'),
+                        borderWidth: 1
+                    },
+                    {
+                        type: 'line',
+                        label: 'Controlled threshold (+6)',
+                        data: hrData.map(() => 6),
+                        borderColor: '#f59e0b',
+                        borderDash: [5, 5],
+                        borderWidth: 1.5,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: textColor, boxWidth: 10 } },
+                    tooltip: {
+                        callbacks: {
+                            afterBody: items => {
+                                const idx = items?.[0]?.dataIndex;
+                                return Number.isInteger(idx) ? [hrData[idx].name] : [];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: textColor, maxTicksLimit: 8 }, grid: { color: borderColor } },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: textColor },
+                        grid: { color: borderColor },
+                        title: { display: true, text: 'HR response (early to late bpm)', color: textColor }
+                    }
+                }
+            }
+        });
     }
 }
 
@@ -4938,6 +5369,16 @@ function bindNsmControls(root, model, allActivities, dateFilterFrom, dateFilterT
     bindNsmSettings(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
     bindNsmTestControls(root, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
     bindNsmRegistry(root, model, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
+
+    // Unsaved changes indicator
+    const badge = root.querySelector(`#${runPlusId('nsm-unsaved-badge')}`);
+    if (badge) {
+        const showBadge = () => badge.classList.remove('nsm-unsaved-badge--hidden');
+        root.querySelectorAll('.run-plus-nsm-registry-row input, .run-plus-nsm-registry-row select').forEach(el => {
+            el.addEventListener('change', showBadge);
+            el.addEventListener('input', showBadge);
+        });
+    }
 }
 
 function bindRunPlusControls(root, model, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options = {}) {
@@ -5039,6 +5480,8 @@ export function renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, ge
     if (!model.runs.length) {
         destroyImpactLoadChart();
         destroyNsmEasyCharts();
+        destroyNsmWeeklyScoreChart();
+        destroyNsmSubtCharts();
         publishRunPlusDiagnostics(root, model.diagnostics);
         publishRunPlusNsm(root, model.nsm);
         root.innerHTML = `
@@ -5060,6 +5503,8 @@ export function renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, ge
     if (subview === 'nsm') {
         destroyImpactLoadChart();
         destroyNsmEasyCharts();
+        destroyNsmWeeklyScoreChart();
+        destroyNsmSubtCharts();
         root.innerHTML = `
             <div class="run-plus-shell">
                 ${renderRunPlusFilters(allActivities, effectiveDateFilterFrom, effectiveDateFilterTo, gearFilter)}
@@ -5071,10 +5516,14 @@ export function renderRunPlusTab(allActivities, dateFilterFrom, dateFilterTo, ge
         publishRunPlusNsm(root, model.nsm);
         bindRunPlusControls(root, model, allActivities, dateFilterFrom, dateFilterTo, gearFilter, options);
         renderNsmEasyCharts(model);
+        renderNsmWeeklyScoreChart(model);
+        renderNsmSubtCharts(model);
         return;
     }
 
     destroyNsmEasyCharts();
+    destroyNsmWeeklyScoreChart();
+    destroyNsmSubtCharts();
 
     // Build all section groups
     const sectionGroupsHtml = SECTION_GROUPS.map(group => renderSectionGroup(group, model)).join('');
