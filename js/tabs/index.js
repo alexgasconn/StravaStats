@@ -1,4 +1,5 @@
 export { renderRunAnalysisTab } from './run-analysis.js';
+export { renderRunPlusTab } from './run-plus.js';
 export { renderBikeAnalysisTab } from './bike-analysis.js';
 export { renderSwimAnalysisTab } from './swim-analysis.js';
 export { renderDashboardTab } from './dashboard.js';

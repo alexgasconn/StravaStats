@@ -28,9 +28,9 @@
     <meta name="twitter:description" content="Advanced sports analytics for runners, cyclists and swimmers.">
 
     <!-- PWA Manifest -->
-    <link rel="manifest" href="./manifest.json">
-    <link rel="icon" type="image/svg+xml" href="./icon-sport.svg">
-    <link rel="apple-touch-icon" href="./icon-sport.svg">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/svg+xml" href="/icon-sport.svg">
+    <link rel="apple-touch-icon" href="/icon-sport.svg">
 
     <!-- D3 & Cal-Heatmap -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -50,22 +50,23 @@
     <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
     <!-- CSS Framework & Components (Load in order) -->
-    <link rel="stylesheet" href="./styles/colors.css">
-    <link rel="stylesheet" href="./styles/responsive-components.css">
-    <link rel="stylesheet" href="./styles/style.css">
+    <link rel="stylesheet" href="/styles/colors.css">
+    <link rel="stylesheet" href="/styles/responsive-components.css">
+    <link rel="stylesheet" href="/styles/style.css">
 
     <!-- Tab-specific & Feature Styles -->
-    <link rel="stylesheet" href="./styles/run.css">
-    <link rel="stylesheet" href="./styles/bike.css">
-    <link rel="stylesheet" href="./styles/swim.css">
-    <link rel="stylesheet" href="./styles/dashboard.css">
-    <link rel="stylesheet" href="./styles/calendar.css">
-    <link rel="stylesheet" href="./styles/activities.css">
-    <link rel="stylesheet" href="./styles/predictor.css">
-    <link rel="stylesheet" href="./styles/report.css">
-    <link rel="stylesheet" href="./styles/gear.css">
-    <link rel="stylesheet" href="./styles/weather.css">
-    <link rel="stylesheet" href="./styles/map.css">
+    <link rel="stylesheet" href="/styles/run.css">
+    <link rel="stylesheet" href="/styles/bike.css">
+    <link rel="stylesheet" href="/styles/swim.css">
+    <link rel="stylesheet" href="/styles/dashboard.css">
+    <link rel="stylesheet" href="/styles/calendar.css">
+    <link rel="stylesheet" href="/styles/activities.css">
+    <link rel="stylesheet" href="/styles/predictor.css">
+    <link rel="stylesheet" href="/styles/report.css">
+    <link rel="stylesheet" href="/styles/gear.css">
+    <link rel="stylesheet" href="/styles/weather.css">
+    <link rel="stylesheet" href="/styles/map.css">
+    <link rel="stylesheet" href="/styles/run-plus.css">
 
 
 
@@ -101,7 +102,7 @@
     <div class="container">
         <!-- LOGIN SECTION -->
         <div id="login-section">
-            <img src="./icon-sport.svg" alt="StravaStats" style="width:56px;height:56px;margin-bottom:0.5rem;">
+            <img src="/icon-sport.svg" alt="StravaStats" style="width:56px;height:56px;margin-bottom:0.5rem;">
             <h1>StravaStats</h1>
             <p>Connect your Strava account to visualize your progress and discover new insights.</p>
             <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
@@ -121,13 +122,14 @@
             <!-- TOP BAR (logo + tabs + actions in one row) -->
             <header class="top-bar">
                 <div class="top-bar__brand">
-                    <img id="app-logo" src="./icon-sport.svg" alt="StravaStats logo" class="top-bar__logo">
+                    <img id="app-logo" src="/icon-sport.svg" alt="StravaStats logo" class="top-bar__logo">
                     <span id="athlete-name" class="top-bar__title">StravaStats</span>
                 </div>
                 <nav class="tab-nav tabs">
                     <button class="tab-link active" data-tab="dashboard-tab"
                         aria-controls="dashboard-tab">Dashboard</button>
                     <button class="tab-link" data-tab="run-tab" aria-controls="run-tab">Run</button>
+                    <button class="tab-link" data-tab="run-plus-tab" aria-controls="run-plus-tab">Run Plus</button>
                     <button class="tab-link" data-tab="bike-tab" aria-controls="bike-tab">Bike</button>
                     <button class="tab-link" data-tab="swim-tab" aria-controls="swim-tab">Swim</button>
                     <button class="tab-link" data-tab="trends-tab" aria-controls="trends-tab">Trends</button>
@@ -346,6 +348,8 @@
                         <button id="download-pdf-btn" aria-label="Download PDF">⬇️ Download PDF</button>
                     </div>
                 </div>
+
+                <div id="run-plus-tab" class="tab-content"></div>
 
                 <div id="bike-tab" class="tab-content">
 
@@ -1189,7 +1193,7 @@
 
         <div id="loading-overlay" class="hidden">
             <div class="loading-card">
-                <img src="./icon-sport.svg" alt="StravaStats" class="loading-logo">
+                <img src="/icon-sport.svg" alt="StravaStats" class="loading-logo">
                 <div class="loading-spinner"></div>
                 <p id="loading-message" class="loading-text"></p>
                 <div id="loading-progress-track" aria-hidden="true">
@@ -1208,7 +1212,7 @@
         </div>
     </div>
 
-    <script type="module" src="js/main.js"></script>
+    <script type="module" src="/js/main.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const toggle = document.getElementById('header-toggle');

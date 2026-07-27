@@ -22,31 +22,78 @@ function calculateGlobalHrMaxRef(runs) {
     return hrMaxValues[index];
 }
 
-export function renderRunAnalysisTab(allActivities, dateFilterFrom, dateFilterTo, gearFilter = 'all', rollingWindowWeeks = 26) {
-    const filteredActivities = utils.filterActivitiesByDate(allActivities, dateFilterFrom, dateFilterTo);
-    const runs = filteredActivities
-        .filter(a => a.type && a.type.includes('Run'))
-        .filter(a => gearFilter === 'all' || a.gear_id === gearFilter);
+const DEFAULT_RUN_RENDER_CONTEXT = {
+    idPrefix: '',
+    root: document
+};
 
-    renderSummaryCards(runs);
-    renderActivityTypeChart(runs);
-    renderMonthlyDistanceChart(runs);
-    renderPaceVsDistanceChart(runs);
-    renderDistanceHistogram(runs);
-    renderDistanceSection(runs, rollingWindowWeeks);
-    renderEddingtonSection(runs);
-    renderDistanceVsElevationChart(runs);
-    renderElevationHistogram(runs);
-    renderConsistencyChart(runs, dateFilterFrom, dateFilterTo);
-    renderTopRuns(runs);
-    renderActivitiesTable(runs);
-    renderPaceHistogram(runs);
-    renderPaceHrCurveChart(runs);
-    renderConsistencyImprovementChart(runs);
-    renderVolumeImprovementChart(runs);
-    renderEfficiencyEvolutionChart(runs);
-    renderDistanceEfficiencyChart(runs);
-    renderPaceHrEfficiencyChart(runs);
+let runRenderContext = DEFAULT_RUN_RENDER_CONTEXT;
+
+function withRunRenderContext(options = {}, callback) {
+    const previousContext = runRenderContext;
+    const root = options.containerId
+        ? document.getElementById(options.containerId)
+        : (options.root || document);
+
+    runRenderContext = {
+        idPrefix: options.idPrefix || '',
+        root: root || document
+    };
+
+    try {
+        return callback();
+    } finally {
+        runRenderContext = previousContext;
+    }
+}
+
+function scopedId(id) {
+    return `${runRenderContext.idPrefix || ''}${id}`;
+}
+
+function idAttr(id) {
+    return scopedId(id);
+}
+
+function getElement(id) {
+    const resolvedId = scopedId(id);
+    if (runRenderContext.root && runRenderContext.root !== document) {
+        return runRenderContext.root.querySelector(`#${resolvedId}`) || document.getElementById(resolvedId);
+    }
+    return document.getElementById(resolvedId);
+}
+
+function upsertChartInfo(canvasId, options) {
+    utils.upsertChartInfo(scopedId(canvasId), options);
+}
+
+export function renderRunAnalysisTab(allActivities, dateFilterFrom, dateFilterTo, gearFilter = 'all', rollingWindowWeeks = 26, options = {}) {
+    return withRunRenderContext(options, () => {
+        const filteredActivities = utils.filterActivitiesByDate(allActivities, dateFilterFrom, dateFilterTo);
+        const runs = filteredActivities
+            .filter(a => a.type && a.type.includes('Run'))
+            .filter(a => gearFilter === 'all' || a.gear_id === gearFilter);
+
+        renderSummaryCards(runs);
+        renderActivityTypeChart(runs);
+        renderMonthlyDistanceChart(runs);
+        renderPaceVsDistanceChart(runs);
+        renderDistanceHistogram(runs);
+        renderDistanceSection(runs, rollingWindowWeeks);
+        renderEddingtonSection(runs);
+        renderDistanceVsElevationChart(runs);
+        renderElevationHistogram(runs);
+        renderConsistencyChart(runs, dateFilterFrom, dateFilterTo);
+        renderTopRuns(runs);
+        renderActivitiesTable(runs);
+        renderPaceHistogram(runs);
+        renderPaceHrCurveChart(runs);
+        renderConsistencyImprovementChart(runs);
+        renderVolumeImprovementChart(runs);
+        renderEfficiencyEvolutionChart(runs);
+        renderDistanceEfficiencyChart(runs);
+        renderPaceHrEfficiencyChart(runs);
+    });
 }
 
 function buildWeeklyDistanceSeries(activities, distanceGetter) {
@@ -142,21 +189,22 @@ function makeSortable(table) {
 
 // --- UTILITY ---
 function createChart(canvasId, config) {
-    const canvas = document.getElementById(canvasId);
+    const resolvedCanvasId = scopedId(canvasId);
+    const canvas = getElement(canvasId);
     if (!canvas) {
-        console.error(`Canvas with id ${canvasId} not found.`);
+        console.error(`Canvas with id ${resolvedCanvasId} not found.`);
         return;
     }
     // Si ya existe un gráfico en ese canvas, lo destruimos primero
-    if (charts[canvasId]) {
-        charts[canvasId].destroy();
+    if (charts[resolvedCanvasId]) {
+        charts[resolvedCanvasId].destroy();
     }
     // Use container-defined heights so charts remain stable across desktop/mobile.
     if (!config.options) config.options = {};
     config.options.responsive = true;
     config.options.maintainAspectRatio = false;
-    charts[canvasId] = new Chart(canvas, config);
-    return charts[canvasId];
+    charts[resolvedCanvasId] = new Chart(canvas, config);
+    return charts[resolvedCanvasId];
 }
 
 function isDatasetVisible(chart, datasetIndex) {
@@ -265,10 +313,11 @@ function syncChartHtmlLegendOverlay(chart, canvasId) {
 }
 
 function createHtmlLegendOverlayPlugin(canvasId) {
+    const resolvedCanvasId = scopedId(canvasId);
     return {
-        id: `${canvasId}-html-legend-overlay`,
+        id: `${resolvedCanvasId}-html-legend-overlay`,
         afterDraw(chart) {
-            syncChartHtmlLegendOverlay(chart, canvasId);
+            syncChartHtmlLegendOverlay(chart, resolvedCanvasId);
         }
     };
 }
@@ -276,7 +325,7 @@ function createHtmlLegendOverlayPlugin(canvasId) {
 
 // --- CHART RENDERING FUNCTIONS ---
 export function renderConsistencyChart(runs, dateFilterFrom = null, dateFilterTo = null) {
-    const container = document.getElementById('cal-heatmap-run');
+    const container = getElement('cal-heatmap-run');
     if (!container) return;
 
     container.innerHTML = '';
@@ -1027,7 +1076,7 @@ export function renderRollingMeanDistanceChart(runs, rollingWindowWeeks = 26) {
         }
     });
 
-    utils.upsertChartInfo('rolling-mean-distance-chart', {
+    upsertChartInfo('rolling-mean-distance-chart', {
         title: 'Weekly trend, in short',
         bodyHtml: `Bars are the weekly totals and the solid line is the rolling mean over the selected window.<br>
            Longer windows smooth more noise; shorter windows react faster to changes.`,
@@ -1078,7 +1127,7 @@ function attachRunEddingtonInfo(canvasId, eddington, variant) {
            Example: one marathon day does <strong>not</strong> mean Marathon E42.`;
     }
 
-    utils.upsertChartInfo(canvasId, {
+    upsertChartInfo(canvasId, {
         title: 'Eddington, in short',
         bodyHtml,
         accentColor: '#FC5200'
@@ -1385,7 +1434,11 @@ export function renderDistanceSection(runs, rollingWindowWeeks = 26) {
 }
 
 export function renderEddingtonSection(runs) {
-    const selectorEl = document.getElementById('run-eddington-mode-selector');
+    const selectorEl = getElement('run-eddington-mode-selector');
+    const contextOptions = {
+        idPrefix: runRenderContext.idPrefix,
+        root: runRenderContext.root
+    };
     function getMode() {
         return selectorEl?.querySelector('.eddington-mode-btn.active')?.dataset.mode || 'daily';
     }
@@ -1394,9 +1447,11 @@ export function renderEddingtonSection(runs) {
         if (!selectorEl.dataset.bound) {
             selectorEl.querySelectorAll('.eddington-mode-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    selectorEl.querySelectorAll('.eddington-mode-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    _drawRunEddingtonCharts(selectorEl._runs, btn.dataset.mode);
+                    withRunRenderContext(contextOptions, () => {
+                        selectorEl.querySelectorAll('.eddington-mode-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        _drawRunEddingtonCharts(selectorEl._runs, btn.dataset.mode);
+                    });
                 });
             });
             selectorEl.dataset.bound = 'true';
@@ -1408,7 +1463,7 @@ export function renderEddingtonSection(runs) {
 
 
 export function renderRunsHeatmap(runs) {
-    const mapDiv = document.getElementById("runs-heatmap");
+    const mapDiv = getElement("runs-heatmap");
     if (!mapDiv) return;
 
     // Set container size
@@ -1471,7 +1526,7 @@ export function renderRunsHeatmap(runs) {
 
 
 function renderSummaryCards(runs) {
-    const summaryContainer = document.getElementById('run-summary-cards');
+    const summaryContainer = getElement('run-summary-cards');
     if (summaryContainer) {
         const totalDistance = runs.reduce((s, a) => s + a.distance, 0) / 1000;
         const totalElevation = runs.reduce((s, a) => s + a.total_elevation_gain, 0);
@@ -1493,7 +1548,7 @@ function renderSummaryCards(runs) {
 
 
 function renderStreaks(runs) {
-    const streaksInfo = document.getElementById('streaks-info');
+    const streaksInfo = getElement('streaks-info');
     if (!streaksInfo) return;
 
     const today = new Date();
@@ -1741,7 +1796,7 @@ function renderStreaks(runs) {
 }
 // --- TOP RUNS SECTION ---
 function renderTopRuns(runs) {
-    const el = document.getElementById("run-top");
+    const el = getElement("run-top");
     if (!el) return;
 
     const topDistance = [...runs]
@@ -1769,14 +1824,14 @@ function renderTopRuns(runs) {
 
     const activityLink = a => {
         if (!a?.id) return a?.name || '-';
-        return `<a href="html/activity-router.html?id=${encodeURIComponent(a.id)}" target="_blank" rel="noopener noreferrer">${a.name}</a>`;
+        return `<a href="/html/activity-router.html?id=${encodeURIComponent(a.id)}" target="_blank" rel="noopener noreferrer">${a.name}</a>`;
     };
 
     el.innerHTML = `
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin: 2rem 0;">
             <div class="top-box" style="padding: 1.5rem; background: rgba(252, 82, 0, 0.08); border: 1px solid rgba(252, 82, 0, 0.25); border-radius: 12px;">
                 <h3 style="margin-top: 0; color: #FC5200;">🏃 Longest Runs</h3>
-                <table class="compact-table" id="run-top-distance-table">
+                <table class="compact-table" id="${idAttr('run-top-distance-table')}">
                 <thead><tr style="background: #FC5200; color: #fff;"><th>#</th><th>Run</th><th data-sort="num">km</th></tr></thead>
                 <tbody>
                     ${topDistance.map((a, i) => `<tr><td>${i + 1}</td><td>${activityLink(a)}</td><td data-value="${a.distance / 1000}">${(a.distance / 1000).toFixed(1)} km</td></tr>`).join("")}
@@ -1786,7 +1841,7 @@ function renderTopRuns(runs) {
 
             <div class="top-box" style="padding: 1.5rem; background: rgba(252, 82, 0, 0.08); border: 1px solid rgba(252, 82, 0, 0.25); border-radius: 12px;">
                 <h3 style="margin-top: 0; color: #FC5200;">⛰️ Most Elevation</h3>
-                <table class="compact-table" id="run-top-elevation-table">
+                <table class="compact-table" id="${idAttr('run-top-elevation-table')}">
                 <thead><tr style="background: #FC5200; color: #fff;"><th>#</th><th>Run</th><th data-sort="num">Elev (m)</th></tr></thead>
                 <tbody>
                     ${topElevation.map((a, i) => `<tr><td>${i + 1}</td><td>${activityLink(a)}</td><td data-value="${a.total_elevation_gain}">${a.total_elevation_gain} m</td></tr>`).join("")}
@@ -1796,7 +1851,7 @@ function renderTopRuns(runs) {
 
             <div class="top-box" style="padding: 1.5rem; background: rgba(252, 82, 0, 0.08); border: 1px solid rgba(252, 82, 0, 0.25); border-radius: 12px;">
                 <h3 style="margin-top: 0; color: #FC5200;">⚡ Fastest Races</h3>
-                <table class="compact-table" id="run-top-pace-table">
+                <table class="compact-table" id="${idAttr('run-top-pace-table')}">
                 <thead><tr style="background: #FC5200; color: #fff;"><th>#</th><th>Run</th><th data-sort="num">Pace</th></tr></thead>
                 <tbody>
                     ${topFastest.map((a, i) => `<tr><td>${i + 1}</td><td>${activityLink(a)}</td><td data-value="${a.pace}">${utils.formatPace(a.pace, 1)}</td></tr>`).join("")}
@@ -1806,14 +1861,14 @@ function renderTopRuns(runs) {
         </div>
     `;
 
-    makeSortable(document.getElementById('run-top-distance-table'));
-    makeSortable(document.getElementById('run-top-elevation-table'));
-    makeSortable(document.getElementById('run-top-pace-table'));
+    makeSortable(getElement('run-top-distance-table'));
+    makeSortable(getElement('run-top-elevation-table'));
+    makeSortable(getElement('run-top-pace-table'));
 }
 
 // --- ACTIVITIES TABLE ---
 function renderActivitiesTable(runs) {
-    const el = document.getElementById("run-activities-table");
+    const el = getElement("run-activities-table");
     if (!el) return;
 
     const rows = runs
@@ -1822,7 +1877,7 @@ function renderActivitiesTable(runs) {
             const pace = utils.formatPace(1000 / a.average_speed, 1);
             const paceVal = a.average_speed > 0 ? (1000 / a.average_speed) : 9999;
             const activityLink = a.id
-                ? `<a href="html/activity-router.html?id=${encodeURIComponent(a.id)}" target="_blank" rel="noopener noreferrer">${a.name}</a>`
+                ? `<a href="/html/activity-router.html?id=${encodeURIComponent(a.id)}" target="_blank" rel="noopener noreferrer">${a.name}</a>`
                 : a.name;
             return `
             <tr>
@@ -1838,7 +1893,7 @@ function renderActivitiesTable(runs) {
         .join("");
 
     el.innerHTML = `
-        <table id="run-all-table" style="width: 100%; border-collapse: collapse; margin-top: 2rem; border: 1px solid rgba(252, 82, 0, 0.25); border-radius: 10px; overflow: hidden;">
+        <table id="${idAttr('run-all-table')}" style="width: 100%; border-collapse: collapse; margin-top: 2rem; border: 1px solid rgba(252, 82, 0, 0.25); border-radius: 10px; overflow: hidden;">
             <thead>
                 <tr style="background: #FC5200; color: #fff;">
                     <th data-sort="date" style="padding: 12px; text-align: left; border-bottom: 2px solid rgba(255,255,255,0.2);">Date</th>
@@ -1854,7 +1909,7 @@ function renderActivitiesTable(runs) {
         </table>
     `;
 
-    makeSortable(document.getElementById('run-all-table'));
+    makeSortable(getElement('run-all-table'));
 }
 
 export function renderPaceHrCurveChart(runs) {
@@ -1987,7 +2042,7 @@ export function renderPaceHrCurveChart(runs) {
         }
     });
 
-    utils.upsertChartInfo('pace-hr-curve-chart', {
+    upsertChartInfo('pace-hr-curve-chart', {
         title: 'Speed–Heart Rate Curve',
         bodyHtml: `This chart compares your pace at similar heart rates between your early runs (first 33%) and late runs (last 33%).<br>
         The solid lines show the average pace for each 5 bpm heart rate bin.<br>
@@ -2153,7 +2208,7 @@ export function renderConsistencyImprovementChart(runs) {
         }
     });
 
-    utils.upsertChartInfo('consistency-improvement-chart', {
+    upsertChartInfo('consistency-improvement-chart', {
         title: 'Monthly Consistency vs Improvement',
         bodyHtml: `
         This chart shows how training consistency within each month relates to changes in aerobic efficiency over time.<br><br>
@@ -2251,7 +2306,7 @@ export function renderVolumeImprovementChart(runs) {
         }
     });
 
-    utils.upsertChartInfo('volume-improvement-chart', {
+    upsertChartInfo('volume-improvement-chart', {
         title: 'Monthly Volume vs Improvement Probability',
         bodyHtml: `Here you see how monthly training volume relates to the probability of improvement.<br>
         We group your months by volume (total distance or number of sessions) and calculate in what percentage of those months your performance at constant heart rate improved compared to the previous month.<br>
@@ -2401,7 +2456,7 @@ export function renderEfficiencyEvolutionChart(runs) {
         }
     });
 
-    utils.upsertChartInfo('efficiency-evolution-chart', {
+    upsertChartInfo('efficiency-evolution-chart', {
         title: 'Aerobic Efficiency Evolution',
         bodyHtml: `
         This chart tracks how your aerobic efficiency changes over time.<br><br>
@@ -2493,7 +2548,7 @@ export function renderDistanceEfficiencyChart(runs) {
         }
     });
 
-    utils.upsertChartInfo('distance-efficiency-chart', {
+    upsertChartInfo('distance-efficiency-chart', {
         title: 'Distance vs Efficiency',
         bodyHtml: `
         This chart shows how your running efficiency changes with distance.<br><br>
@@ -2665,19 +2720,25 @@ export function renderPaceHrEfficiencyChart(runs, mode = 'single') {
         }
     });
 
-    utils.upsertChartInfo('pace-hr-efficiency-chart', {
+    upsertChartInfo('pace-hr-efficiency-chart', {
         title,
         bodyHtml,
         accentColor: '#FC5200'
     });
 
+    const contextOptions = {
+        idPrefix: runRenderContext.idPrefix,
+        root: runRenderContext.root
+    };
+
     // Add event listener to the button
     setTimeout(() => {
-        const button = document.querySelector('.toggle-regression-btn');
+        const scopedRoot = contextOptions.root && contextOptions.root !== document ? contextOptions.root : document;
+        const button = scopedRoot.querySelector('.toggle-regression-btn');
         if (button) {
             button.addEventListener('click', () => {
                 const newMode = mode === 'single' ? 'multiple' : 'single';
-                renderPaceHrEfficiencyChart(runs, newMode);
+                withRunRenderContext(contextOptions, () => renderPaceHrEfficiencyChart(runs, newMode));
             });
         }
     }, 100);

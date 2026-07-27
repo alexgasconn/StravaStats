@@ -1,0 +1,2179 @@
+/* =====================================================
+   RUN PLUS - Enhanced Running Analysis Workbench
+   ===================================================== */
+
+/* ─── Tab Root ──────────────────────────────────────── */
+#run-plus-tab.active {
+    display: block;
+    padding: var(--spacing-sm);
+    --nsm-table-header-bg: #03a9f4;
+}
+
+@media (min-width: 900px) {
+    #run-plus-tab.active {
+        padding: var(--spacing-md);
+    }
+}
+
+.run-plus-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    max-width: 1440px;
+    margin: 0 auto;
+}
+
+/* ─── Run Plus Filters ─────────────────────────────── */
+.run-plus-filter-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.run-plus-filter-panel__main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.75rem;
+}
+
+.run-plus-filter-field {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 150px;
+}
+
+.run-plus-filter-field label {
+    color: var(--color-text-medium);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.run-plus-filter-field input,
+.run-plus-filter-field select {
+    min-height: 36px;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-card);
+    color: var(--color-text-dark);
+}
+
+.run-plus-filter-actions,
+.run-plus-year-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.run-plus-filter-actions button,
+.run-plus-year-buttons .year-btn {
+    min-height: 36px;
+    padding: 0.35rem 0.75rem;
+}
+
+.run-plus-year-buttons .year-btn.active {
+    background: var(--color-sport-run);
+    border-color: var(--color-sport-run);
+    color: #fff;
+}
+
+/* ─── Chart Containers inside Run Plus ──────────────── */
+#run-plus-tab .chart-container {
+    border-radius: var(--radius-lg);
+    border-top: 4px solid var(--color-sport-run);
+    box-shadow: var(--shadow-sm);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    transition: box-shadow var(--transition-fast);
+}
+
+#run-plus-tab .chart-container:hover {
+    box-shadow: var(--shadow-md);
+}
+
+#run-plus-tab .chart-container canvas {
+    min-height: 260px;
+}
+
+#run-plus-tab .chart-container h3 {
+    color: var(--color-sport-run);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    margin: 0 0 var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.run-plus-chart-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0 0 var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+#run-plus-tab .run-plus-chart-heading h3 {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+}
+
+/* ─── Diagnosis Overview Hero ───────────────────────── */
+.run-plus-diagnosis-overview {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-left: 5px solid var(--color-sport-run);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.run-plus-overview-main h2 {
+    margin: 0.3rem 0 0.5rem;
+    color: var(--color-text-dark);
+    font-size: 1.65rem;
+    line-height: 1.15;
+}
+
+.run-plus-overview-main p {
+    margin: 0;
+    color: var(--color-text-medium);
+    line-height: 1.55;
+    max-width: 760px;
+}
+
+.run-plus-overview-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+}
+
+.run-plus-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.run-plus-cross-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+/* ─── Diagnosis Cards (in overview) ─────────────────── */
+.run-plus-diagnosis-card,
+.run-plus-cross-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0.9rem;
+    transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.run-plus-diagnosis-card:hover,
+.run-plus-cross-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.run-plus-diagnosis-card span {
+    display: block;
+    margin: 0 0 0.35rem;
+    color: var(--color-text-medium);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.run-plus-diagnosis-card strong {
+    display: block;
+    color: var(--color-text-dark);
+    font-size: 1rem;
+    line-height: 1.3;
+}
+
+.run-plus-diagnosis-card p {
+    margin: 0.45rem 0 0;
+    color: var(--color-text-medium);
+    line-height: 1.45;
+    font-size: 0.88rem;
+}
+
+.run-plus-cross-card h3 {
+    margin: 0 0 0.55rem;
+    color: var(--color-text-dark);
+    font-size: 0.98rem;
+}
+
+.run-plus-cross-card ul {
+    margin: 0;
+    padding-left: 1.1rem;
+}
+
+.run-plus-cross-card li {
+    color: var(--color-text-medium);
+    line-height: 1.45;
+    font-size: 0.88rem;
+}
+
+.run-plus-cross-card li + li {
+    margin-top: 0.35rem;
+}
+
+/* ─── Summary Stats Bar ────────────────────────────── */
+.run-plus-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 0.75rem;
+}
+
+.run-plus-stat {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: 1rem;
+    min-height: 110px;
+    position: relative;
+    overflow: hidden;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.run-plus-stat::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--color-sport-run);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.run-plus-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.run-plus-stat span {
+    display: block;
+    color: var(--color-text-medium);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.run-plus-stat strong {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--color-text-dark);
+    font-size: 1.5rem;
+    line-height: 1.15;
+}
+
+.run-plus-stat small {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--color-text-medium);
+    line-height: 1.35;
+    font-size: 0.82rem;
+}
+
+/* ─── Section Groups ────────────────────────────────── */
+.run-plus-section-group {
+    margin-top: 0.5rem;
+}
+
+.run-plus-section-group__header {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.6rem 0;
+    margin-bottom: 0.75rem;
+    border-bottom: 2px solid var(--color-sport-run);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.run-plus-section-group__header::-webkit-details-marker {
+    display: none;
+}
+
+.run-plus-section-group__header::after {
+    content: '▾';
+    width: 1.65rem;
+    height: 1.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.4rem;
+    border-radius: 999px;
+    background: rgba(252, 82, 0, 0.12);
+    color: var(--color-sport-run);
+    font-size: 0.85rem;
+    transition: transform 0.2s ease, background var(--transition-fast);
+}
+
+.run-plus-section-group:not([open]) .run-plus-section-group__header::after {
+    transform: rotate(-90deg);
+}
+
+.run-plus-section-group__header:hover::after {
+    background: rgba(252, 82, 0, 0.2);
+}
+
+.run-plus-section-group__icon {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.run-plus-section-group__title {
+    font-size: 1.1rem;
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-dark);
+    margin: 0;
+}
+
+.run-plus-section-group__subtitle {
+    font-size: 0.82rem;
+    color: var(--color-text-medium);
+    margin-left: auto;
+}
+
+.run-plus-section-group__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.run-plus-section-group__grid--single {
+    grid-template-columns: 1fr;
+}
+
+/* ─── Chart Module (chart full-width, diagnosis below) ── */
+.run-plus-module {
+    display: flex;
+    flex-direction: column;
+}
+
+.run-plus-module--wide {
+    grid-column: 1 / -1;
+}
+
+.run-plus-module-panel {
+    min-width: 0;
+    width: 100%;
+}
+
+.run-plus-module-panel > h3 {
+    margin: 0 0 0.75rem;
+    padding-top: 0.85rem;
+    border-top: 2px solid var(--color-border);
+    color: var(--color-sport-run);
+    font-size: 1rem;
+}
+
+/* ─── Diagnosis Panel (below chart, collapsible) ─────── */
+.run-plus-diagnosis-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    margin-top: 0.35rem;
+    background: rgba(250, 204, 21, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    color: #8a4b00;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.run-plus-diagnosis-toggle:hover {
+    background: rgba(250, 204, 21, 0.22);
+    border-color: rgba(245, 158, 11, 0.75);
+    color: #78350f;
+}
+
+.run-plus-diagnosis-toggle__chevron {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    font-size: 0.7rem;
+}
+
+.run-plus-diagnosis-toggle.expanded .run-plus-diagnosis-toggle__chevron {
+    transform: rotate(90deg);
+}
+
+.run-plus-diagnosis-toggle__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 999px;
+    background: #facc15;
+    color: #422006;
+    font-size: 0.88rem;
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.22);
+}
+
+.run-plus-diagnosis-toggle__label {
+    color: #78350f;
+    white-space: nowrap;
+}
+
+.run-plus-diagnosis-toggle__summary {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-medium);
+}
+
+.run-plus-module-diagnosis {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.35s ease, opacity 0.25s ease, padding 0.25s ease;
+    padding: 0 0.9rem;
+}
+
+.run-plus-module-diagnosis.expanded {
+    max-height: 600px;
+    opacity: 1;
+    padding: 0.9rem;
+}
+
+.run-plus-module-diagnosis h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0 0 0.5rem;
+    color: var(--color-sport-run);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.run-plus-module-diagnosis p {
+    margin: 0.4rem 0 0;
+    font-size: 0.88rem;
+    color: var(--color-text-medium);
+    line-height: 1.5;
+}
+
+.run-plus-module-diagnosis strong {
+    color: var(--color-text-dark);
+}
+
+/* ─── Module Toolbar and Chart Pair ─────────────────── */
+.run-plus-module-toolbar,
+.run-plus-export-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+}
+
+.run-plus-module-toolbar label {
+    color: var(--color-text-medium);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.run-plus-module-toolbar select {
+    min-height: 34px;
+}
+
+.run-plus-rolling-selector {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.run-plus-rolling-selector .eddington-mode-btn {
+    min-height: 28px;
+    padding: 0.18rem 0.55rem;
+    font-size: 0.76rem;
+}
+
+.run-plus-chart-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.run-plus-export-buttons {
+    margin-top: 1rem;
+}
+
+/* ─── Kicker Badge ──────────────────────────────────── */
+.run-plus-kicker {
+    display: inline-flex;
+    color: var(--color-sport-run);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ─── Hero Meta ─────────────────────────────────────── */
+.run-plus-hero__meta {
+    align-self: end;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    color: var(--color-text-medium);
+}
+
+.run-plus-hero__meta strong {
+    color: var(--color-text-dark);
+    font-size: 1.05rem;
+}
+
+/* ─── Pills ─────────────────────────────────────────── */
+.run-plus-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
+    padding: 0 0.65rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.run-plus-pill--good {
+    background: rgba(34, 197, 94, 0.12);
+    color: #15803d;
+}
+
+.run-plus-pill--warn {
+    background: rgba(245, 158, 11, 0.14);
+    color: #92400e;
+}
+
+.run-plus-pill--risk {
+    background: rgba(220, 38, 38, 0.12);
+    color: #b91c1c;
+}
+
+.run-plus-pill--muted {
+    background: rgba(107, 114, 128, 0.13);
+    color: #4b5563;
+}
+
+/* ─── Collapsible Auxiliary Sections ────────────────── */
+.run-plus-collapsible-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 0.5rem;
+}
+
+.run-plus-collapsible-group__title {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.6rem 0;
+    margin-bottom: 0.5rem;
+    border-bottom: 2px solid var(--color-border);
+    font-size: 1rem;
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-medium);
+}
+
+.run-plus-collapsible {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.run-plus-collapsible + .run-plus-collapsible {
+    margin-top: 0.5rem;
+}
+
+.run-plus-collapsible summary {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-dark);
+    list-style: none;
+    user-select: none;
+    transition: background var(--transition-fast);
+}
+
+.run-plus-collapsible summary::-webkit-details-marker {
+    display: none;
+}
+
+.run-plus-collapsible summary::before {
+    content: '▸';
+    font-size: 0.75rem;
+    color: var(--color-text-light);
+    transition: transform 0.2s ease;
+}
+
+.run-plus-collapsible[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.run-plus-collapsible summary:hover {
+    background: var(--color-bg-hover);
+}
+
+.run-plus-collapsible summary .run-plus-pill {
+    margin-left: auto;
+}
+
+.run-plus-collapsible__body {
+    padding: 0 1rem 1rem;
+}
+
+/* ─── Quality Grid (inside collapsible) ─────────────── */
+.run-plus-quality-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0.55rem 1rem;
+}
+
+.run-plus-quality-row {
+    display: grid;
+    grid-template-columns: minmax(115px, 0.85fr) minmax(110px, 1fr) 48px;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--color-text-dark);
+}
+
+.run-plus-quality-row span {
+    color: var(--color-text-medium);
+    font-size: 0.9rem;
+}
+
+.run-plus-quality-row strong {
+    text-align: right;
+    font-size: 0.9rem;
+}
+
+.run-plus-meter {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--color-border-light);
+}
+
+.run-plus-meter i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-sport-run);
+}
+
+/* ─── Evidence Grid (inside collapsible) ────────────── */
+.run-plus-evidence-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.75rem;
+}
+
+.run-plus-evidence {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0.9rem;
+    box-shadow: none;
+}
+
+.run-plus-evidence span {
+    display: block;
+    color: var(--color-text-medium);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.run-plus-evidence strong {
+    display: block;
+    margin-top: 0.45rem;
+    color: var(--color-text-dark);
+    font-size: 1rem;
+    line-height: 1.4;
+}
+
+/* ─── Field Groups (inside collapsible) ─────────────── */
+.run-plus-field-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.75rem;
+}
+
+.run-plus-field-group {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0.9rem;
+    box-shadow: none;
+}
+
+.run-plus-field-group span {
+    display: inline-flex;
+    margin-bottom: 0.5rem;
+    color: var(--color-sport-run);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.run-plus-field-group h4 {
+    margin: 0 0 0.45rem;
+    color: var(--color-text-dark);
+    font-size: 0.98rem;
+}
+
+.run-plus-field-group p {
+    margin: 0;
+    color: var(--color-text-dark);
+    line-height: 1.5;
+}
+
+.run-plus-field-group code {
+    display: inline-flex;
+    margin: 0.2rem 0.25rem 0.1rem 0;
+    padding: 0.2rem 0.4rem;
+    border-radius: 6px;
+    background: rgba(252, 82, 0, 0.08);
+    color: var(--color-sport-run);
+    font-size: 0.82rem;
+}
+
+/* ─── Metric Table (inside collapsible) ─────────────── */
+.run-plus-table-wrap {
+    overflow-x: auto;
+}
+
+.run-plus-metric-table {
+    min-width: 980px;
+}
+
+.run-plus-metric-table td:nth-child(2) {
+    font-weight: 700;
+    color: var(--color-text-dark);
+}
+
+/* ─── Empty State ───────────────────────────────────── */
+.run-plus-empty {
+    margin: 0;
+    color: var(--color-text-medium);
+}
+
+/* ─── Tissue Load & Capacity Modules ─────────────────── */
+.run-plus-tissue-panel,
+.run-plus-resolver-panel,
+.run-plus-capacity-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.run-plus-tissue-lead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    border-radius: var(--radius-md);
+    background: rgba(252, 82, 0, 0.07);
+    border: 1px solid rgba(252, 82, 0, 0.18);
+}
+
+.run-plus-tissue-lead p,
+.run-plus-capacity-copy p,
+.run-plus-resolver-panel p,
+.run-plus-chart-caption {
+    margin: 0;
+    color: var(--color-text-medium);
+    line-height: 1.5;
+}
+
+.run-plus-tissue-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 0.75rem;
+}
+
+.run-plus-tissue-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0.9rem;
+    background: var(--color-bg-card);
+    box-shadow: var(--shadow-sm);
+    border-top: 4px solid var(--color-border);
+}
+
+.run-plus-tissue-card--good {
+    border-top-color: #16a34a;
+}
+
+.run-plus-tissue-card--warn {
+    border-top-color: #f59e0b;
+}
+
+.run-plus-tissue-card--risk {
+    border-top-color: #dc2626;
+}
+
+.run-plus-tissue-card--muted {
+    border-top-color: #6b7280;
+}
+
+.run-plus-tissue-card span,
+.run-plus-capacity-input-grid label span {
+    display: block;
+    color: var(--color-text-medium);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.run-plus-tissue-card strong {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--color-text-dark);
+    font-size: 1.35rem;
+    line-height: 1.15;
+}
+
+.run-plus-tissue-card small {
+    display: block;
+    margin-top: 0.45rem;
+    color: var(--color-text-medium);
+    line-height: 1.4;
+}
+
+.run-plus-tissue-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.65fr);
+    gap: 1rem;
+}
+
+.run-plus-tissue-split h4 {
+    margin: 0 0 0.5rem;
+    color: var(--color-text-dark);
+}
+
+.run-plus-tissue-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--color-text-medium);
+    line-height: 1.55;
+}
+
+.run-plus-tissue-table {
+    min-width: 760px;
+}
+
+.run-plus-chart-caption {
+    margin-top: 0.75rem;
+    font-size: 0.86rem;
+}
+
+.run-plus-capacity-copy {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.85rem;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-hover);
+    border: 1px solid var(--color-border-light);
+}
+
+.run-plus-capacity-copy .run-plus-pill {
+    justify-self: start;
+}
+
+.run-plus-capacity-input-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 0.75rem;
+}
+
+.run-plus-capacity-input-grid label {
+    display: grid;
+    gap: 0.35rem;
+    color: var(--color-text-dark);
+    font-weight: 700;
+}
+
+.run-plus-capacity-input-grid input {
+    min-height: 38px;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-card);
+    color: var(--color-text-dark);
+}
+
+.run-plus-capacity-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.run-plus-resolver-table {
+    min-width: 840px;
+}
+
+.run-plus-decision-box {
+    padding: 0.85rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-dark);
+    line-height: 1.5;
+}
+
+.run-plus-decision-box--good {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.28);
+}
+
+.run-plus-decision-box--warn {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.32);
+}
+
+.run-plus-decision-box--risk {
+    background: rgba(220, 38, 38, 0.1);
+    border-color: rgba(220, 38, 38, 0.28);
+}
+
+/* ─── NSM Subpage ───────────────────────────────────── */
+.run-plus-subnav {
+    display: inline-flex;
+    align-self: flex-start;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.run-plus-subnav__item {
+    min-height: 34px;
+    padding: 0.35rem 0.85rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-medium);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.run-plus-subnav__item.active {
+    background: var(--color-sport-run);
+    color: #fff;
+}
+
+.run-plus-nsm-hero {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.5fr);
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-left: 5px solid var(--color-sport-run);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+}
+
+.run-plus-nsm-command-grid,
+.run-plus-nsm-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.run-plus-nsm-mini-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.run-plus-nsm-metric {
+    min-height: 118px;
+    padding: 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+}
+
+.run-plus-nsm-metric span {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--color-text-medium);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.run-plus-nsm-metric strong {
+    display: block;
+    color: var(--color-text-dark);
+    font-size: 1rem;
+    line-height: 1.25;
+}
+
+.run-plus-nsm-metric small {
+    display: block;
+    margin-top: 0.45rem;
+    color: var(--color-text-medium);
+    line-height: 1.35;
+}
+
+.run-plus-nsm-config {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--color-border-light);
+    padding-top: 0.75rem;
+}
+
+.run-plus-nsm-config summary {
+    color: var(--color-text-dark);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.run-plus-nsm-settings,
+.run-plus-nsm-test-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.run-plus-nsm-settings label,
+.run-plus-nsm-test-form label {
+    display: grid;
+    gap: 0.3rem;
+}
+
+.run-plus-nsm-settings label span,
+.run-plus-nsm-test-form label span {
+    color: var(--color-text-medium);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.run-plus-nsm-settings input,
+.run-plus-nsm-settings select,
+.run-plus-nsm-test-form input,
+.run-plus-nsm-test-form select,
+.run-plus-nsm-registry-table input,
+.run-plus-nsm-registry-table select {
+    min-height: 34px;
+    padding: 0.35rem 0.45rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-card);
+    color: var(--color-text-dark);
+}
+
+.run-plus-nsm-actions {
+    display: flex;
+    align-items: end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.run-plus-nsm-split {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+    gap: 1rem;
+}
+
+.run-plus-nsm-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.run-plus-nsm-chart-card {
+    min-width: 0;
+    padding: 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+}
+
+.run-plus-nsm-chart-card--wide {
+    grid-column: 1 / -1;
+}
+
+.run-plus-nsm-chart-card h4 {
+    margin: 0;
+    color: var(--color-text-dark);
+    font-size: 0.92rem;
+}
+
+.run-plus-nsm-chart-card p {
+    margin: 0.35rem 0 0.7rem;
+    color: var(--color-text-medium);
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+.run-plus-nsm-chart-card canvas {
+    width: 100%;
+    min-height: 260px;
+    max-height: 320px;
+}
+
+.run-plus-nsm-table th,
+.run-plus-nsm-table td,
+.run-plus-nsm-registry-table th,
+.run-plus-nsm-registry-table td {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.run-plus-nsm-table {
+    min-width: 980px;
+}
+
+.nsm-easy-runs-table-wrap {
+    max-height: 360px;
+    position: relative;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border: 1px solid var(--color-border-light, #e5e7eb);
+    border-radius: var(--radius-md);
+}
+
+.nsm-easy-runs-table {
+    width: 100%;
+    min-width: 0;
+    margin-top: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+}
+
+.nsm-easy-runs-table th,
+.nsm-easy-runs-table td {
+    padding-inline: 0.5rem;
+}
+
+.nsm-easy-runs-table th:nth-child(1),
+.nsm-easy-runs-table td:nth-child(1) {
+    width: 112px;
+}
+
+.nsm-easy-runs-table th:nth-child(2),
+.nsm-easy-runs-table td:nth-child(2) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nsm-easy-runs-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.nsm-easy-runs-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background: var(--nsm-table-header-bg, #03a9f4);
+    box-shadow: 0 1px 0 var(--color-border-light, #e5e7eb), 0 3px 8px rgba(15, 23, 42, 0.08);
+}
+
+.nsm-easy-runs-table th:nth-child(3),
+.nsm-easy-runs-table td:nth-child(3),
+.nsm-easy-runs-table th:nth-child(4),
+.nsm-easy-runs-table td:nth-child(4),
+.nsm-easy-runs-table th:nth-child(5),
+.nsm-easy-runs-table td:nth-child(5),
+.nsm-easy-runs-table th:nth-child(6),
+.nsm-easy-runs-table td:nth-child(6) {
+    width: 88px;
+}
+
+.nsm-easy-runs-table th:nth-child(7),
+.nsm-easy-runs-table td:nth-child(7) {
+    width: 92px;
+}
+
+.run-plus-nsm-registry-table {
+    min-width: 1580px;
+}
+
+.run-plus-nsm-registry-table input[type="text"] {
+    min-width: 86px;
+}
+
+.run-plus-nsm-registry-table input[data-nsm-field="notes"] {
+    min-width: 180px;
+}
+
+.run-plus-nsm-registry-table input[data-nsm-field="workPace"] {
+    width: 86px;
+}
+
+.run-plus-nsm-registry-table input[type="number"] {
+    width: 72px;
+}
+
+.run-plus-nsm-registry-table select {
+    min-width: 118px;
+}
+
+.run-plus-nsm-link-button {
+    min-height: 30px;
+    padding: 0.25rem 0.55rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-medium);
+    cursor: pointer;
+}
+
+.run-plus-nsm-link-button:hover {
+    color: var(--color-sport-run);
+    border-color: var(--color-sport-run);
+}
+
+.run-plus-nsm-link-button:disabled {
+    cursor: progress;
+    opacity: 0.62;
+}
+
+.run-plus-nsm-analysis-cell {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    min-width: 220px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   NSM BEAUTIFICATION — Animations
+   ═══════════════════════════════════════════════════════ */
+@keyframes nsm-fade-slide-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nsm-counter-pop {
+    0% { transform: scale(0.9); opacity: 0.6; }
+    60% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes nsm-glow-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(252, 82, 0, 0); }
+    50% { box-shadow: 0 0 12px 2px rgba(252, 82, 0, 0.15); }
+}
+
+@keyframes nsm-ring-fill {
+    from { stroke-dashoffset: var(--nsm-ring-circumference, 283); }
+    to { stroke-dashoffset: var(--nsm-ring-target, 0); }
+}
+
+@keyframes nsm-save-flash {
+    0% { background: var(--color-sport-run); }
+    50% { background: #16a34a; }
+    100% { background: var(--color-sport-run); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   NSM Hero — Tiered Layout
+   ═══════════════════════════════════════════════════════ */
+.nsm-hero-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-left: 5px solid var(--color-sport-run);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    animation: nsm-fade-slide-in 0.4s ease-out;
+}
+
+.nsm-hero-top {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+.nsm-hero-ring-wrap {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.nsm-hero-ring {
+    position: relative;
+    width: 120px;
+    height: 120px;
+}
+
+.nsm-hero-ring svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.nsm-hero-ring__track {
+    fill: none;
+    stroke: var(--color-border-light, #e5e7eb);
+    stroke-width: 8;
+}
+
+.nsm-hero-ring__fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    animation: nsm-ring-fill 1s ease-out forwards;
+}
+
+.nsm-hero-ring__label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.nsm-hero-ring__score {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--color-text-dark);
+    line-height: 1;
+    animation: nsm-counter-pop 0.6s ease-out 0.3s both;
+}
+
+.nsm-hero-ring__sub {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.2rem;
+}
+
+.nsm-hero-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.nsm-verdict {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    animation: nsm-fade-slide-in 0.5s ease-out 0.2s both;
+}
+
+.nsm-verdict--good {
+    background: rgba(34, 197, 94, 0.12);
+    color: #15803d;
+}
+
+.nsm-verdict--warn {
+    background: rgba(245, 158, 11, 0.14);
+    color: #92400e;
+}
+
+.nsm-verdict--risk {
+    background: rgba(220, 38, 38, 0.12);
+    color: #b91c1c;
+}
+
+/* Primary stat strip */
+.nsm-stat-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.nsm-stat-primary {
+    position: relative;
+    padding: 0.9rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-left-color var(--transition-fast);
+    animation: nsm-fade-slide-in 0.4s ease-out both;
+}
+
+.nsm-stat-primary:nth-child(1) { animation-delay: 0.05s; }
+.nsm-stat-primary:nth-child(2) { animation-delay: 0.1s; }
+.nsm-stat-primary:nth-child(3) { animation-delay: 0.15s; }
+.nsm-stat-primary:nth-child(4) { animation-delay: 0.2s; }
+
+.nsm-stat-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.nsm-stat-primary--subt { border-left-color: #f59e0b; }
+.nsm-stat-primary--easy { border-left-color: #16a34a; }
+.nsm-stat-primary--load { border-left-color: #2563eb; }
+.nsm-stat-primary--quality { border-left-color: var(--color-sport-run); }
+
+.nsm-stat-primary__label {
+    display: block;
+    color: var(--color-text-medium);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.nsm-stat-primary__value {
+    display: block;
+    margin-top: 0.3rem;
+    color: var(--color-text-dark);
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.nsm-stat-primary__detail {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--color-text-medium);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+/* Secondary stat row */
+.nsm-stat-secondary-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.nsm-stat-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.65rem;
+    background: var(--color-bg-hover, #f3f4f6);
+    border: 1px solid var(--color-border-light, #e5e7eb);
+    border-radius: 999px;
+    font-size: 0.76rem;
+    color: var(--color-text-medium);
+    animation: nsm-fade-slide-in 0.4s ease-out 0.25s both;
+}
+
+.nsm-stat-secondary strong {
+    color: var(--color-text-dark);
+    font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════════════
+   NSM Weekly Score Chart
+   ═══════════════════════════════════════════════════════ */
+.nsm-weekly-chart-card {
+    padding: 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    margin-bottom: 1rem;
+}
+
+.nsm-weekly-chart-card h4 {
+    margin: 0 0 0.5rem;
+    color: var(--color-text-dark);
+    font-size: 0.92rem;
+}
+
+.nsm-weekly-chart-card canvas {
+    width: 100%;
+    min-height: 200px;
+    max-height: 260px;
+}
+
+/* Weekly table current-week highlight */
+.nsm-week-row--current {
+    background: rgba(252, 82, 0, 0.04) !important;
+    border-left: 3px solid var(--color-sport-run);
+}
+
+.nsm-week-row--current td:first-child {
+    font-weight: 700;
+    color: var(--color-sport-run);
+}
+
+/* ═══════════════════════════════════════════════════════
+   NSM SubT Trend Charts
+   ═══════════════════════════════════════════════════════ */
+.nsm-subt-charts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.nsm-subt-chart-card {
+    padding: 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow var(--transition-fast);
+}
+
+.nsm-subt-chart-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.nsm-subt-chart-card h4 {
+    margin: 0;
+    color: var(--color-text-dark);
+    font-size: 0.92rem;
+}
+
+.nsm-subt-chart-card p {
+    margin: 0.3rem 0 0.6rem;
+    color: var(--color-text-medium);
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.nsm-subt-chart-card canvas {
+    width: 100%;
+    min-height: 240px;
+    max-height: 300px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   NSM Control Badges (SubT Workbench)
+   ═══════════════════════════════════════════════════════ */
+.nsm-control-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: transform var(--transition-fast);
+}
+
+.nsm-control-badge--controlled {
+    background: rgba(34, 197, 94, 0.12);
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.nsm-control-badge--watch {
+    background: rgba(245, 158, 11, 0.14);
+    color: #92400e;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    animation: nsm-glow-pulse 2.5s ease-in-out infinite;
+}
+
+.nsm-control-badge--overcooked {
+    background: rgba(220, 38, 38, 0.12);
+    color: #b91c1c;
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    animation: nsm-glow-pulse 1.8s ease-in-out infinite;
+}
+
+.nsm-control-badge--proxy {
+    background: rgba(107, 114, 128, 0.13);
+    color: #4b5563;
+    border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.nsm-progress-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.nsm-progress-status-copy {
+    color: var(--color-text-medium);
+    line-height: 1.45;
+}
+
+.nsm-overcooked-callout {
+    padding: 0.5rem 0.85rem;
+    margin: 0.25rem 0 0.5rem;
+    background: rgba(220, 38, 38, 0.06);
+    border: 1px solid rgba(220, 38, 38, 0.18);
+    border-left: 3px solid #dc2626;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    color: var(--color-text-medium);
+    line-height: 1.45;
+}
+
+.nsm-overcooked-callout strong {
+    color: #b91c1c;
+}
+
+/* ═══════════════════════════════════════════════════════
+   NSM HR Response Gauge (Interval Analysis)
+   ═══════════════════════════════════════════════════════ */
+.nsm-hr-gauge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 90px;
+}
+
+.nsm-hr-gauge__bar {
+    flex: 1;
+    height: 8px;
+    background: var(--color-border-light, #e5e7eb);
+    border-radius: 999px;
+    overflow: hidden;
+    min-width: 50px;
+}
+
+.nsm-hr-gauge__fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.6s ease-out;
+}
+
+.nsm-hr-gauge__fill--good { background: #16a34a; }
+.nsm-hr-gauge__fill--warn { background: #f59e0b; }
+.nsm-hr-gauge__fill--risk { background: #dc2626; }
+
+.nsm-hr-gauge__value {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--color-text-dark);
+    min-width: 42px;
+}
+
+/* Confidence dots */
+.nsm-confidence-dots {
+    display: inline-flex;
+    gap: 2px;
+}
+
+.nsm-confidence-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-border-light, #e5e7eb);
+}
+
+.nsm-confidence-dot--filled { background: var(--color-sport-run); }
+
+/* ═══════════════════════════════════════════════════════
+   NSM Settings Groups
+   ═══════════════════════════════════════════════════════ */
+.nsm-settings-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+.nsm-settings-group {
+    padding: 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+}
+
+.nsm-settings-group__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border-light, #e5e7eb);
+}
+
+.nsm-settings-group__icon {
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.nsm-settings-group__title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--color-text-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.nsm-settings-group__fields {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.nsm-settings-group__fields label {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.nsm-settings-group__fields label span {
+    color: var(--color-text-medium);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* HR zone preview bar */
+.nsm-hr-zone-preview {
+    display: flex;
+    height: 18px;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+    border: 1px solid var(--color-border-light, #e5e7eb);
+}
+
+.nsm-hr-zone-preview__segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: flex var(--transition-normal, 0.3s);
+}
+
+.nsm-hr-zone-preview__segment--easy { background: #16a34a; }
+.nsm-hr-zone-preview__segment--subt { background: #f59e0b; }
+.nsm-hr-zone-preview__segment--hard { background: #dc2626; }
+
+/* Save button feedback */
+.nsm-save-btn--success {
+    animation: nsm-save-flash 0.8s ease-out;
+}
+
+/* ═══════════════════════════════════════════════════════
+   NSM Registry Enhancements
+   ═══════════════════════════════════════════════════════ */
+.nsm-registry-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding: 0.65rem;
+    background: var(--color-bg-hover, #f3f4f6);
+    border: 1px solid var(--color-border-light, #e5e7eb);
+    border-radius: var(--radius-md);
+}
+
+.nsm-registry-filter__search {
+    flex: 1;
+    min-width: 160px;
+    min-height: 34px;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-card);
+    color: var(--color-text-dark);
+}
+
+.nsm-registry-filter__search::placeholder {
+    color: var(--color-text-light, #ababab);
+}
+
+.nsm-registry-filter__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-bg-card);
+    color: var(--color-text-medium);
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.nsm-registry-filter__chip:hover,
+.nsm-registry-filter__chip--active {
+    background: var(--color-sport-run);
+    color: #fff;
+    border-color: var(--color-sport-run);
+}
+
+/* Unsaved changes indicator */
+.nsm-unsaved-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.14);
+    color: #92400e;
+    font-size: 0.74rem;
+    font-weight: 700;
+    animation: nsm-glow-pulse 2s ease-in-out infinite;
+}
+
+.nsm-unsaved-badge--hidden {
+    display: none;
+}
+
+/* Registry detail panel */
+.nsm-registry-expand {
+    display: none;
+}
+
+.nsm-registry-expand--open {
+    display: table-row;
+}
+
+.nsm-registry-expand__panel {
+    padding: 0.85rem;
+    background: var(--color-bg-hover, #f3f4f6);
+    border-top: 1px dashed var(--color-border-light, #e5e7eb);
+}
+
+.nsm-registry-expand__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.6rem;
+}
+
+.nsm-registry-expand__grid label {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.nsm-registry-expand__grid label span {
+    color: var(--color-text-medium);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* Row tag left border accent */
+.nsm-row--easy { border-left: 3px solid #16a34a !important; }
+.nsm-row--subt { border-left: 3px solid #f59e0b !important; }
+.nsm-row--long { border-left: 3px solid #2563eb !important; }
+.nsm-row--race { border-left: 3px solid #ec4899 !important; }
+.nsm-row--other { border-left: 3px solid #6b7280 !important; }
+.nsm-row--excluded { border-left: 3px solid var(--color-border-light, #e5e7eb) !important; opacity: 0.6; }
+
+/* Sticky table header */
+.nsm-sticky-thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--color-bg-card);
+    box-shadow: 0 1px 0 0 var(--color-border);
+}
+
+/* ═══════════════════════════════════════════════════════
+   NSM Empty States
+   ═══════════════════════════════════════════════════════ */
+.nsm-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    color: var(--color-text-medium);
+}
+
+.nsm-empty-state__icon {
+    font-size: 2.5rem;
+    opacity: 0.5;
+}
+
+.nsm-empty-state__title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-dark);
+}
+
+.nsm-empty-state__text {
+    font-size: 0.88rem;
+    line-height: 1.5;
+    max-width: 400px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   NSM Tooltips
+   ═══════════════════════════════════════════════════════ */
+.nsm-tooltip {
+    position: relative;
+    cursor: help;
+    border-bottom: 1px dashed var(--color-text-light, #ababab);
+}
+
+.nsm-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.4rem 0.65rem;
+    background: #1e293b;
+    color: #f8fafc;
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 500;
+}
+
+.nsm-tooltip:hover::after {
+    opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════
+   NSM Section Stagger Animation
+   ═══════════════════════════════════════════════════════ */
+.nsm-section-animated {
+    animation: nsm-fade-slide-in 0.4s ease-out both;
+}
+
+.nsm-section-animated:nth-child(1) { animation-delay: 0s; }
+.nsm-section-animated:nth-child(2) { animation-delay: 0.06s; }
+.nsm-section-animated:nth-child(3) { animation-delay: 0.12s; }
+.nsm-section-animated:nth-child(4) { animation-delay: 0.18s; }
+.nsm-section-animated:nth-child(5) { animation-delay: 0.24s; }
+.nsm-section-animated:nth-child(6) { animation-delay: 0.30s; }
+.nsm-section-animated:nth-child(7) { animation-delay: 0.36s; }
+.nsm-section-animated:nth-child(8) { animation-delay: 0.42s; }
+
+/* ═══════════════════════════════════════════════════════
+   NSM Enhanced Table Rows
+   ═══════════════════════════════════════════════════════ */
+.run-plus-nsm-table tbody tr,
+.run-plus-nsm-registry-table tbody tr {
+    transition: background var(--transition-fast), border-left-width var(--transition-fast);
+}
+
+.run-plus-nsm-table tbody tr:hover,
+.run-plus-nsm-registry-table tbody tr:hover {
+    background: rgba(252, 82, 0, 0.03);
+}
+
+/* Score pill glow */
+.nsm-score-glow {
+    box-shadow: 0 0 8px 1px currentColor;
+}
+
+/* ─── Dark Mode Overrides ───────────────────────────── */
+html[data-theme="dark"] .run-plus-pill--good {
+    color: #86efac;
+}
+
+html[data-theme="dark"] .run-plus-pill--warn {
+    color: #facc15;
+}
+
+html[data-theme="dark"] .run-plus-pill--risk {
+    color: #fca5a5;
+}
+
+html[data-theme="dark"] .run-plus-pill--muted {
+    color: #d1d5db;
+}
+
+html[data-theme="dark"] .run-plus-diagnosis-toggle {
+    background: rgba(250, 204, 21, 0.16);
+    border-color: rgba(250, 204, 21, 0.46);
+    color: #fde68a;
+}
+
+html[data-theme="dark"] .run-plus-diagnosis-toggle__label {
+    color: #fde68a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nsm-hero-section,
+    .nsm-section-animated,
+    .nsm-stat-primary,
+    .nsm-stat-secondary,
+    .nsm-verdict,
+    .nsm-hero-ring__fill,
+    .nsm-hero-ring__score,
+    .nsm-control-badge--watch,
+    .nsm-control-badge--overcooked,
+    .nsm-unsaved-badge,
+    .nsm-subt-chart-card,
+    .nsm-hr-gauge__fill,
+    .nsm-hr-zone-preview__segment,
+    .nsm-registry-filter__chip,
+    .run-plus-nsm-table tbody tr,
+    .run-plus-nsm-registry-table tbody tr {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    .nsm-stat-primary:hover {
+        transform: none;
+    }
+}
+
+/* ─── Responsive: Mobile ────────────────────────────── */
+@media (max-width: 640px) {
+    .run-plus-diagnosis-overview {
+        padding: 0.9rem;
+    }
+
+    .run-plus-overview-main h2 {
+        font-size: 1.4rem;
+    }
+
+    .run-plus-overview-grid,
+    .run-plus-cross-grid,
+    .run-plus-section-group__grid,
+    .run-plus-chart-pair,
+    .run-plus-tissue-grid,
+    .run-plus-tissue-split,
+    .run-plus-nsm-hero,
+    .run-plus-nsm-command-grid,
+    .run-plus-nsm-split,
+    .run-plus-nsm-chart-grid,
+    .nsm-stat-strip,
+    .nsm-subt-charts {
+        grid-template-columns: 1fr;
+    }
+
+    .nsm-hero-top {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .nsm-hero-section {
+        padding: 0.9rem;
+    }
+
+    .run-plus-subnav {
+        width: 100%;
+    }
+
+    .run-plus-subnav__item {
+        flex: 1;
+    }
+
+    .run-plus-nsm-hero {
+        padding: 0.9rem;
+    }
+
+    .run-plus-chart-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .run-plus-rolling-selector {
+        width: 100%;
+    }
+
+    .run-plus-quality-row {
+        grid-template-columns: 1fr 48px;
+    }
+
+    .run-plus-quality-row .run-plus-meter {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}
+
+/* ─── Responsive: Tablet ────────────────────────────── */
+@media (min-width: 641px) and (max-width: 899px) {
+    .run-plus-overview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .run-plus-cross-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .run-plus-section-group__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .run-plus-chart-pair,
+    .run-plus-tissue-split,
+    .run-plus-nsm-hero,
+    .run-plus-nsm-command-grid,
+    .run-plus-nsm-split,
+    .nsm-stat-strip,
+    .nsm-subt-charts {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (min-width: 900px) and (max-width: 1180px) {
+    .run-plus-overview-grid,
+    .run-plus-section-group__grid,
+    .run-plus-nsm-command-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .run-plus-cross-grid {
+        grid-template-columns: 1fr;
+    }
+}
