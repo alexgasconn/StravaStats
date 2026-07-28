@@ -3,7 +3,12 @@
  * Handles loading and managing demo data in localStorage
  */
 
-import { generateDemoData, generateDemoAthlete, generateDemoZones } from './generator.js';
+import {
+    DEFAULT_DEMO_SEED,
+    generateDemoData,
+    generateDemoAthlete,
+    generateDemoZones,
+} from './generator.js';
 
 export const DEMO_MODE_KEY = 'strava_demo_mode';
 export const DEMO_TOKENS_KEY = 'strava_tokens_demo';
@@ -43,9 +48,10 @@ export function loadDemoData() {
     localStorage.setItem('strava_gears_timestamp', String(now));
 
     // Set demo token (fake but valid structure)
+    const tokenSuffix = DEFAULT_DEMO_SEED.toString(36);
     const demoTokens = {
-        access_token: 'demo_token_' + Math.random().toString(36),
-        refresh_token: 'demo_refresh_' + Math.random().toString(36),
+        access_token: `demo_token_${tokenSuffix}`,
+        refresh_token: `demo_refresh_${tokenSuffix}`,
         expires_at: Math.floor(Date.now() / 1000) + 21600, // 6h from now
     };
     localStorage.setItem('strava_tokens', JSON.stringify(demoTokens));

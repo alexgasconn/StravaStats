@@ -30,6 +30,7 @@ import {
 } from '../services/index.js';
 import { preprocessActivities } from '../shared/preprocessing/index.js';
 import { isDemoMode } from '../demo/index.js';
+import { applyServiceWorkerPolicy } from './service-worker-policy.js';
 
 const CACHE_VERSION = 'v2-efficiency-moving-ratio';
 
@@ -724,17 +725,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (kofiButton) kofiButton.addEventListener('click', showKofiModal);
 
     // --- SERVICE WORKER REGISTRATION (PWA) ---
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(registration => {
-                    console.log('Service Worker registrado exitosamente:', registration);
-                })
-                .catch(error => {
-                    console.log('Error registrando Service Worker:', error);
-                });
-        });
-    }
+    window.addEventListener('load', () => {
+        applyServiceWorkerPolicy()
+            .catch(error => {
+                console.warn('Unable to apply Service Worker policy:', error);
+            });
+    });
 
     // --- TRENDS FILTER LISTENERS (via custom event) ---
     document.addEventListener('trends-filters-changed', (e) => {
