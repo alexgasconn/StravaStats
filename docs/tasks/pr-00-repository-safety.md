@@ -4,7 +4,7 @@
 
 | 字段 | 内容 |
 | --- | --- |
-| Status | Ready for independent review |
+| Status | Approved for merge |
 | Base branch | `integration/v2` |
 | Feature branch | `codex/v2/repo-safety` |
 | Worktree | `/Users/wangchuanliang/Documents/StravaStats-worktrees/repo-safety` |
@@ -343,7 +343,7 @@ Investigation report: Completed 2026-07-28
 Approved decisions: Section 5
 Implementation commits: See PR #3 commit history
 Pull request: https://github.com/XiChuan9/StravaStats/pull/3
-CI: Pass — https://github.com/XiChuan9/StravaStats/actions/runs/30336650344
+CI: Pass after independent-review fixes — https://github.com/XiChuan9/StravaStats/actions/runs/30338469129
 Tests: npm test, 13/13 pass
 Checks: npm ci; syntax 96 files; privacy; diff; CI YAML parse
 Manual verification: Automated Demo smoke passed for Dashboard, Run, Run Plus,
