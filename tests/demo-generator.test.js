@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 
 import {
   DEFAULT_DEMO_REFERENCE_DATE,
   generateDemoAthlete,
   generateDemoData,
 } from '../js/demo/generator.js';
+import { getDemoReferenceDate } from '../js/demo/index.js';
 
 test('demo activities are deterministic for the same seed and reference date', () => {
   const options = {
@@ -42,4 +44,49 @@ test('demo generation is timezone-independent and rejects invalid reference date
 
 test('demo athlete metadata uses the fixed demo reference date by default', () => {
   assert.equal(generateDemoAthlete().updated_at, DEFAULT_DEMO_REFERENCE_DATE);
+});
+
+test('demo activity output is identical across host timezones', () => {
+  const script = `
+    import { createHash } from 'node:crypto';
+    import { generateDemoData } from './js/demo/generator.js';
+    const activities = generateDemoData({
+      seed: 42,
+      referenceDate: '2026-07-28T12:00:00.000Z',
+    });
+    process.stdout.write(
+      createHash('sha256').update(JSON.stringify(activities)).digest('hex')
+    );
+  `;
+  const hashForTimezone = timezone => execFileSync(
+    process.execPath,
+    ['--input-type=module', '-e', script],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: { TZ: timezone },
+    },
+  );
+
+  assert.equal(hashForTimezone('UTC'), hashForTimezone('Asia/Shanghai'));
+  assert.equal(hashForTimezone('UTC'), hashForTimezone('America/Los_Angeles'));
+});
+
+test('runtime demo reference date follows the current UTC day without time drift', () => {
+  const referenceDate = getDemoReferenceDate('2030-03-04T23:59:59.999Z');
+  assert.equal(referenceDate, '2030-03-04T12:00:00.000Z');
+
+  const recentThreshold = Date.parse(referenceDate) - (30 * 24 * 60 * 60 * 1000);
+  assert.ok(
+    generateDemoData({ referenceDate }).some(activity => (
+      Date.parse(activity.start_date) >= recentThreshold
+      && Date.parse(activity.start_date) <= Date.parse(referenceDate)
+    )),
+    'runtime demo data should include activity in the default 30-day dashboard range',
+  );
+
+  assert.throws(
+    () => getDemoReferenceDate('not-a-date'),
+    /now must be a valid date value/,
+  );
 });

@@ -80,7 +80,7 @@
   `?enable-sw=1` 显式启用；
 - Feature Flag 使用纯函数解析显式 runtime override，默认全部 Legacy；
 - `fake-indexeddb` 延后到 PR-05；
-- Demo activity generator 使用固定 seed 和固定 reference date；
+- Demo activity generator 使用固定 seed 和显式 UTC-day reference date；
 - 隐私 guard 使用本地脚本，并由 CI 执行；
 - syntax、privacy 和 unit tests 保持独立 Gate。
 
@@ -143,7 +143,7 @@ index.html（仅 Service Worker 注册边界确有需要时）
 js/app/feature-flags.js
 js/app/*（仅经调查批准的 Service Worker 注册纯函数边界）
 js/demo/generator.js（仅确定性 seed/reference date）
-js/demo/index.js（仅确定性 demo token）
+js/demo/index.js（仅确定性 demo token 和 runtime reference date）
 docs/baseline/baseline-summary.md
 docs/tasks/0000-v2-documentation-baseline.md
 docs/engineering/**
@@ -325,30 +325,30 @@ Activity Detail（保持 tagged baseline 的 401 已知限制）
 
 ## 17. Independent review checklist
 
-- [ ]没有业务功能或架构越界；
-- [ ] `npm test` 不是空壳；
-- [ ] CI 不需要秘密凭据；
-- [ ] Service Worker 生产行为未改变；
-- [ ] Feature Flag 默认 Legacy；
-- [ ]没有真实数据；
-- [ ] `.gitignore` 没有阻止 synthetic fixture；
-- [ ] AGENTS 事实优先级正确；
-- [ ]回滚可执行；
-- [ ]文档和实际脚本一致。
+- [x]没有业务功能或架构越界；
+- [x] `npm test` 不是空壳；
+- [x] CI 不需要秘密凭据；
+- [x] Service Worker 生产行为未改变；
+- [x] Feature Flag 默认 Legacy；
+- [x]没有真实数据；
+- [x] `.gitignore` 没有阻止 synthetic fixture；
+- [x] AGENTS 事实优先级正确；
+- [x]回滚可执行；
+- [x]文档和实际脚本一致。
 
 ## 18. Completion evidence
 
 ```text
 Investigation report: Completed 2026-07-28
 Approved decisions: Section 5
-Implementation commits: 74021b9, 5edef4e
+Implementation commits: See PR #3 commit history
 Pull request: https://github.com/XiChuan9/StravaStats/pull/3
 CI: Pass — https://github.com/XiChuan9/StravaStats/actions/runs/30336650344
-Tests: npm test, 11/11 pass
+Tests: npm test, 13/13 pass
 Checks: npm ci; syntax 96 files; privacy; diff; CI YAML parse
 Manual verification: Automated Demo smoke passed for Dashboard, Run, Run Plus,
   NSM, Bike, Swim, Activities and Settings; no browser warning/error
-Reviewer: Pending independent review
+Reviewer: Independent Codex review completed; P1 demo-date finding resolved
 Known limitations: Real OAuth unavailable; Demo Activity Detail returns 401;
   browser automation surface does not expose Service Worker registration state
 Follow-up: PR-01 Legacy Cache Rescue

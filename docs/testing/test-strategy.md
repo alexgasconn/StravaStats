@@ -62,7 +62,7 @@ tests/
 - 不需要 Strava/Garmin/COROS Token；
 - 不调用真实 API；
 - 不依赖系统当前日期、随机数或时区，除非显式注入；
-- Demo 使用固定 seed；
+- Demo 使用固定 seed，并显式注入按 UTC 日规范化的 reference date；
 - 同一 fixture 在不同机器产生相同 Canonical 输出；
 - 失败测试不得通过重试或扩大容差掩盖；
 - 数值容差必须说明单位和理由。

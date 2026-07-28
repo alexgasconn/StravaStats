@@ -13,6 +13,16 @@ import {
 export const DEMO_MODE_KEY = 'strava_demo_mode';
 export const DEMO_TOKENS_KEY = 'strava_tokens_demo';
 
+export function getDemoReferenceDate(now = new Date()) {
+    const referenceDate = new Date(now);
+    if (Number.isNaN(referenceDate.getTime())) {
+        throw new TypeError('now must be a valid date value');
+    }
+
+    referenceDate.setUTCHours(12, 0, 0, 0);
+    return referenceDate.toISOString();
+}
+
 export function isDemoMode() {
     return localStorage.getItem(DEMO_MODE_KEY) === 'true';
 }
@@ -28,10 +38,12 @@ export function setDemoMode(enabled) {
 /**
  * Load demo data into localStorage (mimics Strava API responses)
  */
-export function loadDemoData() {
+export function loadDemoData({
+    referenceDate = getDemoReferenceDate(),
+} = {}) {
     // Generate all demo data
-    const activities = generateDemoData();
-    const athlete = generateDemoAthlete();
+    const activities = generateDemoData({ referenceDate });
+    const athlete = generateDemoAthlete(referenceDate);
     const zones = generateDemoZones();
     const gears = [...(athlete?.shoes || []), ...(athlete?.bikes || [])];
 

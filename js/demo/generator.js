@@ -224,7 +224,7 @@ function generatePolyline(activityType) {
 }
 
 function generateWeatherData(dateObj) {
-    const month = dateObj.getMonth();
+    const month = dateObj.getUTCMonth();
     // Rough seasonal patterns for Spain
     let tempBase = 15;
     if (month >= 5 && month <= 8) tempBase = 28;

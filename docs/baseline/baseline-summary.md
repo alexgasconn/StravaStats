@@ -44,7 +44,7 @@ Service Worker state: V1 auto-registration present; PR-00 replaces localhost beh
 | NSM | Pass | NSM Training Control 成功渲染 |
 | Bike | Pass | Demo 骑行汇总成功渲染 |
 | Swim | Pass | Demo 游泳汇总成功渲染 |
-| Settings | Not verified | 自动化交互受现有 Support Modal 阻断 |
+| Settings | Pass | 自动化 Demo 导航在关闭现有 Support Modal 后成功渲染 |
 | Activity Detail | Known limitation | Demo 列表可进入 Router，但受保护 API 返回 401 |
 | Map | Not run | 非本次最低冒烟集合 |
 | Gear | Pass | Demo 装备卡片成功渲染 |
