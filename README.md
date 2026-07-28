@@ -8,7 +8,19 @@ The application is deployed as a static frontend plus Vercel serverless API laye
 
 ## Documentation Map
 
+### StravaStats v2
+
+- [V2 documentation index](./docs/README.md)
+- [V2 product requirements](./docs/product/stravastats-v2-prd.md)
+- [V2 development plan](./docs/engineering/v2-development-plan.md)
+- [V2 architecture overview](./docs/architecture/overview.md)
+- [V2 release gates](./docs/engineering/release-gates.md)
+- [V2 migration and rollback](./docs/migrations/rollback-plan.md)
+
+### Current V1 implementation
+
 - [Technical guide](./TECHNICAL_GUIDE.md)
+- [Local setup](./LOCAL_SETUP.md)
 - [PWA guide](./PWA_GUIA.md)
 
 ## Project Overview
