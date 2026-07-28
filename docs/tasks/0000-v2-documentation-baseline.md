@@ -4,17 +4,17 @@
 
 | 字段 | 内容 |
 | --- | --- |
-| Status | In review |
+| Status | Completed |
 | Base branch | `main` |
 | Feature branch | `codex/docs/v2-governance-baseline` |
 | Worktree | `/Users/wangchuanliang/Documents/StravaStats` |
 | Owner | XiChuan9 |
-| Reviewer | 待指定 |
+| Reviewer | XiChuan9 |
 | Related PRD | [StravaStats v2 PRD](../product/stravastats-v2-prd.md) |
 | Related plan | [V2 Development Plan](../engineering/v2-development-plan.md) |
 | Data migration | None |
 | Runtime behavior | No change |
-| Pull request | Not created |
+| Pull request | [#2](https://github.com/XiChuan9/StravaStats/pull/2) |
 
 ## 1. Goal
 
@@ -35,8 +35,8 @@
 - `package.json` 尚无 `npm test`；
 - 尚无 GitHub Actions CI；
 - 当前 logout/disconnect 会清除活动缓存；
-- 当前工作分支是 `codex/docs/v2-governance-baseline`；
-- 本任务创建的 `docs/` 尚未进入稳定分支。
+- 文档分支 `codex/docs/v2-governance-baseline` 已合入 `main`；
+- 文档基线合并提交是 `fe34535c39db421434a5e28cd26a57b3f71130e2`。
 
 ## 4. In scope
 
@@ -188,13 +188,12 @@ Revert 本文档 PR 即可。回滚不会影响运行时代码、浏览器缓存
 
 ## 16. Completion evidence
 
-合并前填写：
-
 ```text
-Commit SHA:
-Pull request:
-Checks:
-Reviewer:
-Merged at:
+Commit SHA: 97512253ff611b87d82d089b922dcbdc5ff88d1e
+Merge commit: fe34535c39db421434a5e28cd26a57b3f71130e2
+Pull request: https://github.com/XiChuan9/StravaStats/pull/2
+Checks: npm run check:syntax (90 files); git diff --check
+Reviewer: XiChuan9
+Merged at: 2026-07-28T04:33:49Z
 Follow-up PR: PR-00 Repository Safety
 ```

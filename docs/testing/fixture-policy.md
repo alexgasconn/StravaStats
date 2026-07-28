@@ -118,6 +118,16 @@ Last reviewed
 
 PR-00 应建立隐私路径和扩展名护栏，但不能全局忽略所有 `.fit/.tcx/.gpx`，因为 synthetic fixture 需要显式提交。
 
+当前最低检查命令：
+
+```bash
+npm run check:privacy
+```
+
+该检查拒绝跟踪私人目录、非示例环境文件，以及
+`tests/fixtures/synthetic/` 之外的 FIT、TCX、GPX 和 ZIP。它不读取仓库外
+私人目录，也不能替代提交前对 fixture 内容和 metadata 的人工审查。
+
 提交 fixture 必须使用精确路径：
 
 ```bash

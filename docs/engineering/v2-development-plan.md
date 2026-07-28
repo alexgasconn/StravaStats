@@ -101,10 +101,10 @@ PORT=3001 npm run dev
 验证主要页面后：
 
 ```bash
-git tag -a baseline-strava-api-2026-07-27 \
-  -m "Stable Strava API version with Run Plus and NSM before local-first v2 migration"
+git tag -a baseline-strava-api-2026-07-28 \
+  -m "Stable Strava API baseline before the local-first v2 migration"
 
-git push origin baseline-strava-api-2026-07-27
+git push origin baseline-strava-api-2026-07-28
 ```
 
 ## 22.2 创建长期分支

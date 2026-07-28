@@ -2,59 +2,64 @@
 
 | 字段 | 内容 |
 | --- | --- |
-| Status | Proposed |
+| Status | Verified with limitations |
 | Owner | XiChuan9 |
-| Code baseline | `8b16ebe1a706f1713602ab5266e47000caf31a17` |
-| Baseline tag | 尚未创建；以实际验证日期命名 |
-| Validation date | 尚未完成 |
+| Runtime baseline | `8b16ebe1a706f1713602ab5266e47000caf31a17` |
+| Tagged baseline | `fe34535c39db421434a5e28cd26a57b3f71130e2` |
+| Baseline tag | `baseline-strava-api-2026-07-28` |
+| Validation date | 2026-07-28 |
 | Evidence classification | Repository-safe summary |
 
 ## 1. 环境
 
-在完成基线验证时填写：
-
 ```text
-Operating system:
-Node:
-npm:
-Browser:
-Browser version:
-Local server command:
-Port:
-Service Worker state:
+Operating system: macOS 15.7.3 arm64
+Node: v25.8.1
+npm: 11.11.0
+Browser: Codex in-app Chromium
+Browser version: Not exposed by the automation surface
+Local server command: PORT=3001 npm run dev
+Port: 3001
+Service Worker state: V1 auto-registration present; PR-00 replaces localhost behavior
 ```
 
 ## 2. 自动检查
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| `npm ci` | Not run | |
-| `npm run check:syntax` | Pass（文档准备前检查） | 90 files |
-| `npm test` | Not implemented | PR-00 |
-| CI | Not implemented | PR-00 |
+| `npm ci` | Pass | 5 packages installed; 0 vulnerabilities |
+| `npm run check:syntax` | Pass | 90 files at tagged baseline |
+| Static HTTP smoke | Pass | `/`、`index.html`、Activity Router、`main.js`、`sw.js` returned 200 |
+| `npm test` | Not implemented at tag | Implemented by PR-00 |
+| CI | Not implemented at tag | Implemented by PR-00 |
 
-## 3. 人工页面验证
+## 3. 无账号自动页面验证
 
 | Page/flow | Result | Notes |
 | --- | --- | --- |
-| Dashboard | Not verified | |
-| Activities | Not verified | |
-| Run | Not verified | |
-| Run Plus | Not verified | |
-| NSM | Not verified | |
-| Bike | Not verified | |
-| Swim | Not verified | |
-| Settings | Not verified | |
-| Activity Detail | Not verified | |
-| Map | Not verified | |
-| Gear | Not verified | |
-| Disconnect/Logout | Not verified | 注意当前可能删除 Legacy Cache |
+| Dashboard | Pass | Demo 数据成功渲染 |
+| Activities | Pass | Demo 活动表成功渲染 |
+| Run | Pass | Demo 汇总与图表容器成功渲染 |
+| Run Plus | Pass | Training Diagnosis 成功渲染 |
+| NSM | Pass | NSM Training Control 成功渲染 |
+| Bike | Pass | Demo 骑行汇总成功渲染 |
+| Swim | Pass | Demo 游泳汇总成功渲染 |
+| Settings | Not verified | 自动化交互受现有 Support Modal 阻断 |
+| Activity Detail | Known limitation | Demo 列表可进入 Router，但受保护 API 返回 401 |
+| Map | Not run | 非本次最低冒烟集合 |
+| Gear | Pass | Demo 装备卡片成功渲染 |
+| Disconnect/Logout | Not run | 不在没有 Legacy 私有备份时触发破坏性路径 |
+
+真实 Strava OAuth 因开发者订阅限制未执行。上述结果只证明无账号 Demo
+和静态入口的基线行为，不代表真实 Strava API 集成通过。
 
 ## 4. 已知结构性限制
 
 - 当前依赖 Strava API；
-- 当前没有 `npm test` 和 CI；
+- Tagged baseline 没有 `npm test` 和 CI；
 - 页面中仍有直接 `/api/strava-*` 调用；
+- 无 Authorization 的本地 `/api/strava-athlete` 返回 500；
+- Demo Activity Detail 不能完全离线工作；
 - Legacy IndexedDB 是缓存，不是长期资料库；
 - logout/disconnect 与活动缓存清理耦合；
 - localhost Service Worker 可能影响多个 worktree 验证；
@@ -66,10 +71,10 @@ Service Worker state:
 
 ## 6. 完成标准
 
-- [ ] 环境信息填写完成；
-- [ ]主要页面人工验证完成；
-- [ ] Legacy Cache 已导出并私下保存；
-- [ ]已知问题已记录；
-- [ ] Baseline Tag 指向验证过的 commit；
-- [ ] `maintenance/v1` 和 `integration/v2` 已从基线创建；
-- [ ]仓库内没有真实运动数据或截图。
+- [x] 环境信息填写完成；
+- [x] 可执行的主要页面已完成无账号自动验证；
+- [ ] Legacy Cache 已导出并私下保存（当前无可登录账号，保持阻断）；
+- [x] 已知问题已记录；
+- [x] Baseline Tag 指向验证过的 commit；
+- [x] `maintenance/v1` 和 `integration/v2` 已从基线创建；
+- [x] 仓库内没有真实运动数据或截图。

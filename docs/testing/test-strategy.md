@@ -22,14 +22,18 @@
 
 ## 2. 当前状态
 
-当前 `package.json` 只有：
+PR-00 建立以下最低自动检查：
 
 ```text
-npm run dev
+npm ci
 npm run check:syntax
+npm run check:privacy
+npm test
 ```
 
-PR-00 将建立 `npm test`、最小单元测试和 GitHub Actions。在此之前，本文描述的是目标策略，不代表相关测试已经存在或通过。
+单元测试使用 Node 内置 `node:test`，CI 使用 Node 24 LTS。PR-00
+只覆盖 Feature Flag、Service Worker 开发策略和确定性 Demo；Repository、
+IndexedDB、Decoder 和完整 E2E 仍属于后续任务，不能因最低 CI 已建立而视为完成。
 
 ## 3. 测试目录
 

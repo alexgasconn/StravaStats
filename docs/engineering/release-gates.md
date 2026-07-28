@@ -26,13 +26,19 @@ Release Gate 是阻断条件，不是建议清单。功能“看起来可用”�
 
 ## 2. 当前能力声明
 
-当前仓库只能自动执行：
+PR-00 建立以下最低自动能力：
 
 ```text
+npm ci
 npm run check:syntax
+npm run check:privacy
+npm test
 ```
 
-`npm test`、GitHub Actions、E2E 和隐私自动检查计划由 PR-00 Repository Safety 建立。在 PR-00 合并前，这些检查必须标记为 `Not implemented`，不得声称已通过。
+GitHub Actions 在 Node 24 LTS 上执行相同检查。当前单元测试只覆盖
+Feature Flag、Service Worker 开发策略和确定性 Demo。E2E、Repository、
+Storage、Import、Decoder、安全和性能测试仍为 `Not implemented`，不得
+因为最低 CI 通过而声称这些 Gate 已完成。
 
 ## 3. PR Gate
 
@@ -44,6 +50,7 @@ npm run check:syntax
 - [ ] 修改文件没有超出允许范围；
 - [ ] `npm ci` 成功；
 - [ ] `npm run check:syntax` 成功；
+- [ ] `npm run check:privacy` 成功；
 - [ ] `npm test` 成功；
 - [ ] 本任务专项测试成功；
 - [ ] `git diff --check` 无错误；
