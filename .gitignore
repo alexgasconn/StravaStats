@@ -10,3 +10,12 @@ yarn-debug.log*
 yarn-error.log*
 coverage/
 dist/
+
+# Repository-local private data and worktree configuration.
+/local-data/
+/private-data/
+/baseline-evidence/
+/exports/private/
+/tests/fixtures/private/
+/.env.worktree
+/worktree.local.json

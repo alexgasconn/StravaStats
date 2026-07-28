@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/local-dev-server.mjs",
-    "check:syntax": "node scripts/check-syntax.mjs"
+    "check:syntax": "node scripts/check-syntax.mjs",
+    "check:privacy": "node scripts/check-privacy.mjs",
+    "test": "node --test"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.0.0",
