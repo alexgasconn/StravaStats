@@ -4,7 +4,7 @@
 
 | 字段 | 内容 |
 | --- | --- |
-| Status | Draft PR open |
+| Status | Ready for independent review |
 | Base branch | `integration/v2` |
 | Feature branch | `codex/v2/repo-safety` |
 | Worktree | `/Users/wangchuanliang/Documents/StravaStats-worktrees/repo-safety` |
@@ -234,7 +234,7 @@ Task Brief 不得凌驾于 Accepted ADR 和数据安全约束。
 ## 11. Acceptance criteria
 
 - [x] `npm test` 存在且实际执行测试；
-- [ ] CI 从干净 checkout 运行；
+- [x] CI 从干净 checkout 运行；
 - [x] 测试无网络、Token 和私人 fixture；
 - [x] Feature Flag 默认全部保持 Legacy 行为；
 - [x] Feature Flag 有单元测试；
@@ -343,7 +343,7 @@ Investigation report: Completed 2026-07-28
 Approved decisions: Section 5
 Implementation commits: 74021b9, 5edef4e
 Pull request: https://github.com/XiChuan9/StravaStats/pull/3
-CI: Pending
+CI: Pass — https://github.com/XiChuan9/StravaStats/actions/runs/30336650344
 Tests: npm test, 11/11 pass
 Checks: npm ci; syntax 96 files; privacy; diff; CI YAML parse
 Manual verification: Automated Demo smoke passed for Dashboard, Run, Run Plus,
