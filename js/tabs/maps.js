@@ -323,6 +323,41 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         list.style.background = 'white';
         list.style.borderRadius = '6px';
         list.style.boxShadow = '0 1px 4px rgba(0,0,0,0.1)';
+        // build a compact filter bar element that will be inserted before the list
+        const filterBar = document.createElement('div');
+        filterBar.id = 'summit-filter-bar';
+        filterBar.style.display = 'flex';
+        filterBar.style.gap = '8px';
+        filterBar.style.alignItems = 'center';
+        filterBar.style.marginBottom = '8px';
+        filterBar.innerHTML = `
+            <div style="font-weight:600">Filtros:</div>
+            <label style="font-size:0.9em">Región</label>
+            <select id="filter-region-select" style="padding:6px">
+                <option value="all">Todas</option>
+            </select>
+            <label style="font-size:0.9em">Estado</label>
+            <select id="filter-status-select" style="padding:6px">
+                <option value="all">Todas</option>
+                <option value="COMPLETED">Completadas</option>
+                <option value="NOT_COMPLETED">No completadas</option>
+                <option value="NEAR">Cerca</option>
+            </select>
+            <label style="font-size:0.9em">Esencial</label>
+            <select id="filter-essential-select" style="padding:6px">
+                <option value="all">Todas</option>
+                <option value="only">Sólo esenciales</option>
+                <option value="no">Sólo no esenciales</option>
+            </select>
+            <button id="filter-all-btn" style="padding:6px 8px">Todas</button>
+            <button id="filter-essential-btn" style="padding:6px 8px">Esenciales</button>
+            <button id="filter-completed-btn" style="padding:6px 8px">Completadas</button>
+            <button id="filter-notcompleted-btn" style="padding:6px 8px">Pendientes</button>
+            <div style="margin-left:8px;display:flex;gap:6px;align-items:center">Altitud</div>
+            <input id="filter-alt-min" type="number" placeholder="min" style="width:72px;padding:6px" />
+            <input id="filter-alt-max" type="number" placeholder="max" style="width:72px;padding:6px" />
+            <button id="filter-alt-apply" style="padding:6px 8px">Aplicar</button>
+        `;
         // header with sorting and table
         list.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -348,9 +383,50 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
                 </table>
             </div>
         `;
-        // append after map element
-        if (mapEl && mapEl.parentNode) mapEl.parentNode.insertBefore(list, mapEl.nextSibling);
-        else container.appendChild(list);
+        // append filter bar then list after map element
+        if (mapEl && mapEl.parentNode) {
+            mapEl.parentNode.insertBefore(filterBar, mapEl.nextSibling);
+            mapEl.parentNode.insertBefore(list, filterBar.nextSibling);
+        } else container.appendChild(list);
+        // wire compact filter bar to panel controls (deferred in case panel not built yet)
+        const wireCompactFilters = () => {
+            const setActive = (btnEl) => {
+                ['filter-all-btn', 'filter-essential-btn', 'filter-completed-btn', 'filter-notcompleted-btn'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.style.fontWeight = (el === btnEl) ? '700' : '400';
+                });
+            };
+            document.getElementById('filter-all-btn')?.addEventListener('click', () => {
+                const ess = document.getElementById('filter-essential-select'); if (ess) ess.value = 'all';
+                const st = document.getElementById('filter-status-select'); if (st) st.value = 'all';
+                const amin = document.getElementById('filter-alt-min'); if (amin) amin.value = '';
+                const amax = document.getElementById('filter-alt-max'); if (amax) amax.value = '';
+                const r = document.getElementById('filter-region-select'); if (r) r.value = 'all';
+                setActive(document.getElementById('filter-all-btn'));
+                applySummitFilters(); renderSummitsList();
+            });
+            document.getElementById('filter-essential-btn')?.addEventListener('click', () => {
+                const ess = document.getElementById('filter-essential-select'); if (ess) ess.value = 'only';
+                setActive(document.getElementById('filter-essential-btn'));
+                applySummitFilters(); renderSummitsList();
+            });
+            document.getElementById('filter-completed-btn')?.addEventListener('click', () => {
+                const st = document.getElementById('filter-status-select'); if (st) st.value = 'COMPLETED';
+                setActive(document.getElementById('filter-completed-btn'));
+                applySummitFilters(); renderSummitsList();
+            });
+            document.getElementById('filter-notcompleted-btn')?.addEventListener('click', () => {
+                const st = document.getElementById('filter-status-select'); if (st) st.value = 'NOT_COMPLETED';
+                setActive(document.getElementById('filter-notcompleted-btn'));
+                applySummitFilters(); renderSummitsList();
+            });
+            document.getElementById('filter-alt-apply')?.addEventListener('click', () => {
+                // filtering reads directly from compact inputs, so just trigger update
+                applySummitFilters(); renderSummitsList();
+            });
+        };
+        setTimeout(wireCompactFilters, 50);
         document.getElementById('summit-sort')?.addEventListener('change', () => renderSummitsList());
         return list;
     }
@@ -360,12 +436,8 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         const tbody = document.getElementById('summit-table-body');
         tbody.innerHTML = '';
         detectCompletedSummits().then(data => {
-            // apply same filters as applySummitFilters
-            const regionVal = document.getElementById('summit-region-filter')?.value || 'all';
-            const statusVal = document.getElementById('summit-status-filter')?.value || 'all';
-            const altMin = Number(document.getElementById('summit-alt-min')?.value) || -Infinity;
-            const altMaxRaw = document.getElementById('summit-alt-max')?.value; const altMax = altMaxRaw ? Number(altMaxRaw) : Infinity;
-            const essentialVal = document.getElementById('summit-essential-filter')?.value || 'all';
+            // apply same filters as applySummitFilters (reads compact bar first)
+            const { regionVal, statusVal, essentialVal, altMin, altMax } = getSummitFilterValues();
             let filtered = data.filter(s => {
                 if (regionVal !== 'all' && !(s.region || []).includes(regionVal)) return false;
                 if (statusVal !== 'all' && s.status !== statusVal) return false;
@@ -396,7 +468,8 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
                 const regionTd = `<td style="padding:6px;color:#333">${(s.region || []).join(', ')}</td>`;
                 const heightTd = `<td style="padding:6px;text-align:right">${s.height ? s.height + ' m' : ''}</td>`;
                 const essentialTd = `<td style="padding:6px;text-align:center">${s.essencial ? 'Sí' : 'No'}</td>`;
-                const statusSym = s.status === 'COMPLETED' ? '<span style="color:green">✓</span>' : (s.status === 'NEAR' ? '<span style="color:orange">●</span>' : '<span style="color:#d00">○</span>');
+                // Use clearer, professional emojis for status: ✅ completado, ⚠️ cerca, 📍 no completado
+                const statusSym = s.status === 'COMPLETED' ? '<span title="Completado">✅</span>' : (s.status === 'NEAR' ? '<span title="Cerca">⚠️</span>' : '<span title="No completado">📍</span>');
                 const statusTd = `<td style="padding:6px;text-align:center">${statusSym}</td>`;
                 const linkTd = `<td style="padding:6px;text-align:center">${s.url ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer">🔗</a>` : ''}</td>`;
                 tr.innerHTML = imgTd + nameTd + regionTd + heightTd + essentialTd + statusTd + linkTd;
@@ -533,7 +606,7 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
     }
 
     function createSummitPopupHTML(s) {
-        const statusLabel = s.status === 'COMPLETED' ? '✓ COMPLETADO' : (s.status === 'NEAR' ? '● CERCA' : '○ NO COMPLETADO');
+        const statusLabel = s.status === 'COMPLETED' ? '✅ COMPLETADO' : (s.status === 'NEAR' ? '⚠️ CERCA' : '📍 NO COMPLETADO');
         const distLine = s.distanceMeters != null ? `<div><strong>Distancia al track:</strong> ${s.distanceMeters} m</div>` : '';
         const actLine = s.matchedActivity ? `<div><strong>Actividad:</strong> ${s.matchedActivity.name || ''}</div><div><strong>Fecha:</strong> ${s.matchedActivity.date || ''}</div>` : '';
         const img = s.image ? `<img src="${s.image}" style="max-width:200px;max-height:120px;display:block;margin-bottom:6px;" onerror="this.style.display='none'" />` : '';
@@ -543,10 +616,22 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
     }
 
     function createSummitMarker(s) {
-        let color = '#d62728'; // red default
-        if (s.status === 'COMPLETED') color = '#2ca02c';
-        else if (s.status === 'NEAR') color = '#ff7f0e';
-        const m = L.circleMarker([s.latitude, s.longitude], { radius: 6, color: color, fillColor: color, fillOpacity: 0.9 });
+        // Create a small SVG pin icon colored by status for a consistent, professional marker
+        const color = s.status === 'COMPLETED' ? '#2ca02c' : (s.status === 'NEAR' ? '#ff7f0e' : '#d62728');
+        const svg = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 24 34">
+                            <defs>
+                                <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
+                                    <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.3" />
+                                </filter>
+                            </defs>
+                            <g filter="url(#s)">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${color}" />
+                                <circle cx="12" cy="9" r="3.2" fill="#fff" />
+                            </g>
+                        </svg>`;
+        const icon = L.divIcon({ className: 'summit-pin-icon', html: svg, iconSize: [28, 36], iconAnchor: [14, 36] });
+        const m = L.marker([s.latitude, s.longitude], { icon });
         m.bindPopup(createSummitPopupHTML(s));
         m.summit = s;
         return m;
@@ -567,25 +652,10 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         panel.style.borderRadius = '6px';
         panel.style.boxShadow = '0 1px 4px rgba(0,0,0,0.3)';
         panel.style.maxWidth = '260px';
+        // Panel kept minimal: summary and close button. Filters live in the compact bar below the map.
         panel.innerHTML = `
             <div style="font-weight:bold;margin-bottom:6px">100 CIMS</div>
             <div id="summits-summary">Cargando...</div>
-            <div style="margin-top:8px">
-                <label>Región:</label>
-                <select id="summit-region-filter"><option value="all">Todas</option></select>
-            </div>
-            <div style="margin-top:6px">
-                <label>Estado:</label>
-                <select id="summit-status-filter"><option value="all">Todas</option><option value="COMPLETED">Completadas</option><option value="NOT_COMPLETED">No completadas</option><option value="NEAR">Cerca</option></select>
-            </div>
-            <div style="margin-top:6px">
-                <label>Altitud min:</label><input id="summit-alt-min" type="number" style="width:100%" />
-                <label>Altitud max:</label><input id="summit-alt-max" type="number" style="width:100%" />
-            </div>
-            <div style="margin-top:6px">
-                <label>Esencial:</label>
-                <select id="summit-essential-filter"><option value="all">Todas</option><option value="only">Sólo esenciales</option><option value="no">Sólo no esenciales</option></select>
-            </div>
             <div style="margin-top:8px;text-align:right"><button id="summit-close-btn">Cerrar</button></div>
         `;
         container.appendChild(panel);
@@ -596,10 +666,11 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
     async function showSummitsLayer() {
         const panel = buildSummitPanel(); panel.style.display = 'block';
         let data = await detectCompletedSummits();
-        // create unique region list
+        // create unique region list and populate compact filter bar region select if present
         const regions = new Set(); data.forEach(s => (s.region || []).forEach(r => regions.add(r)));
-        const regionSel = document.getElementById('summit-region-filter');
-        regionSel.innerHTML = '<option value="all">Todas</option>' + Array.from(regions).sort().map(r => `<option value="${r}">${r}</option>`).join('');
+        const regionOptions = '<option value="all">Todas</option>' + Array.from(regions).sort().map(r => `<option value="${r}">${r}</option>`).join('');
+        const compactRegion = document.getElementById('filter-region-select');
+        if (compactRegion) compactRegion.innerHTML = regionOptions;
 
         // empty existing layer then add markers
         window._stravaSummits.clearLayers();
@@ -614,17 +685,13 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         updateSummitSummary(data);
         try { renderSummitsList(); } catch (e) { }
 
-        // wire up filter events to only show/hide markers
-        const statusSel = document.getElementById('summit-status-filter');
-        const altMin = document.getElementById('summit-alt-min');
-        const altMax = document.getElementById('summit-alt-max');
-        const essentialSel = document.getElementById('summit-essential-filter');
+        // wire up compact filter controls (region/status/essential/alt) if present
         const updateFilters = () => applySummitFilters();
-        regionSel?.addEventListener('change', updateFilters);
-        statusSel?.addEventListener('change', updateFilters);
-        altMin?.addEventListener('input', updateFilters);
-        altMax?.addEventListener('input', updateFilters);
-        essentialSel?.addEventListener('change', updateFilters);
+        const compactRegionSel = document.getElementById('filter-region-select'); if (compactRegionSel) compactRegionSel.addEventListener('change', updateFilters);
+        const compactStatusSel = document.getElementById('filter-status-select'); if (compactStatusSel) compactStatusSel.addEventListener('change', updateFilters);
+        const compactEssentialSel = document.getElementById('filter-essential-select'); if (compactEssentialSel) compactEssentialSel.addEventListener('change', updateFilters);
+        document.getElementById('filter-alt-min')?.addEventListener('input', updateFilters);
+        document.getElementById('filter-alt-max')?.addEventListener('input', updateFilters);
     }
 
     function hideSummitsLayer() {
@@ -632,13 +699,19 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         const panel = document.getElementById('summits-panel'); if (panel) panel.style.display = 'none';
     }
 
-    function applySummitFilters() {
-        const regionVal = document.getElementById('summit-region-filter')?.value || 'all';
-        const statusVal = document.getElementById('summit-status-filter')?.value || 'all';
-        const altMin = Number(document.getElementById('summit-alt-min')?.value) || -Infinity;
-        const altMaxRaw = document.getElementById('summit-alt-max')?.value;
+    function getSummitFilterValues() {
+        const regionVal = document.getElementById('filter-region-select')?.value || document.getElementById('summit-region-filter')?.value || 'all';
+        const statusVal = document.getElementById('filter-status-select')?.value || document.getElementById('summit-status-filter')?.value || 'all';
+        const essentialVal = document.getElementById('filter-essential-select')?.value || document.getElementById('summit-essential-filter')?.value || 'all';
+        const altMinRaw = document.getElementById('filter-alt-min')?.value ?? document.getElementById('summit-alt-min')?.value;
+        const altMaxRaw = document.getElementById('filter-alt-max')?.value ?? document.getElementById('summit-alt-max')?.value;
+        const altMin = altMinRaw ? Number(altMinRaw) : -Infinity;
         const altMax = altMaxRaw ? Number(altMaxRaw) : Infinity;
-        const essentialVal = document.getElementById('summit-essential-filter')?.value || 'all';
+        return { regionVal, statusVal, essentialVal, altMin, altMax };
+    }
+
+    function applySummitFilters() {
+        const { regionVal, statusVal, essentialVal, altMin, altMax } = getSummitFilterValues();
 
         const allMarkers = [];
         window._stravaSummits.eachLayer(l => allMarkers.push(l));
