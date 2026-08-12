@@ -141,6 +141,20 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         } catch (e) { }
     }
 
+    // Controls visibility depending on visualization mode
+    function updateVizControlsVisibility() {
+        const view = vizSel?.value || 'routes';
+        // heat controls visible only for heat view
+        if (densitySlider) densitySlider.style.display = (view === 'heat') ? '' : 'none';
+        if (radiusSlider) radiusSlider.style.display = (view === 'heat') ? '' : 'none';
+        if (blurSlider) blurSlider.style.display = (view === 'heat') ? '' : 'none';
+        // color by sport visible only when showing polylines/routes
+        if (colorBySportCheckbox) colorBySportCheckbox.style.display = (view === 'routes') ? '' : 'none';
+    }
+    // initial visibility and on change
+    try { updateVizControlsVisibility(); } catch (e) { }
+    vizSel?.addEventListener('change', () => { try { updateVizControlsVisibility(); render(); } catch (e) { } });
+
 
     // Initialize leaflet map singleton
     if (!window._stravaMap) {
@@ -390,17 +404,26 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
             mapEl.parentNode.insertBefore(filterBar, mapEl.nextSibling);
             mapEl.parentNode.insertBefore(list, filterBar.nextSibling);
         } else container.appendChild(list);
+        // populate comarca (region) select with available summits immediately so it's not empty
+        detectCompletedSummits().then(data => {
+            try {
+                const regions = new Set(); data.forEach(s => (s.region || []).forEach(r => regions.add(r)));
+                const compactRegion = document.getElementById('filter-region-select');
+                if (compactRegion) compactRegion.innerHTML = '<option value="all">Totes</option>' + Array.from(regions).sort().map(r => `<option value="${r}">${r}</option>`).join('');
+            } catch (e) { }
+        }).catch(() => { });
+
         // wire compact selects and altitude hover popup
-        const compactRegion = document.getElementById('filter-region-select'); if (compactRegion) compactRegion.addEventListener('change', () => { applySummitFilters(); renderSummitsList(); });
-        const compactStatus = document.getElementById('filter-status-select'); if (compactStatus) compactStatus.addEventListener('change', () => { applySummitFilters(); renderSummitsList(); });
-        const compactEssential = document.getElementById('filter-essential-select'); if (compactEssential) compactEssential.addEventListener('change', () => { applySummitFilters(); renderSummitsList(); });
+        const compactRegion = document.getElementById('filter-region-select'); if (compactRegion) compactRegion.addEventListener('change', () => { if (summitsActive && (!window._stravaSummits || window._stravaSummits.getLayers().length === 0)) showSummitsLayer(); else applySummitFilters(); renderSummitsList(); });
+        const compactStatus = document.getElementById('filter-status-select'); if (compactStatus) compactStatus.addEventListener('change', () => { if (summitsActive && (!window._stravaSummits || window._stravaSummits.getLayers().length === 0)) showSummitsLayer(); else applySummitFilters(); renderSummitsList(); });
+        const compactEssential = document.getElementById('filter-essential-select'); if (compactEssential) compactEssential.addEventListener('change', () => { if (summitsActive && (!window._stravaSummits || window._stravaSummits.getLayers().length === 0)) showSummitsLayer(); else applySummitFilters(); renderSummitsList(); });
         // altitude hover popup wiring
         const altWrapper = document.getElementById('filter-alt-wrapper');
         const altPopup = document.getElementById('filter-alt-popup');
         if (altWrapper && altPopup) {
             altWrapper.addEventListener('mouseenter', () => { altPopup.style.display = 'block'; });
             altWrapper.addEventListener('mouseleave', () => { altPopup.style.display = 'none'; });
-            document.getElementById('filter-alt-apply')?.addEventListener('click', () => { applySummitFilters(); renderSummitsList(); });
+            document.getElementById('filter-alt-apply')?.addEventListener('click', () => { if (summitsActive && (!window._stravaSummits || window._stravaSummits.getLayers().length === 0)) showSummitsLayer(); else applySummitFilters(); renderSummitsList(); });
             document.getElementById('filter-alt-min')?.addEventListener('input', () => { /* live update optional */ });
             document.getElementById('filter-alt-max')?.addEventListener('input', () => { /* live update optional */ });
         }
