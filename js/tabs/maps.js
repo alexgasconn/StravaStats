@@ -28,9 +28,9 @@ function parseActivityPolyline(a) {
 }
 
 // Summit detection configuration (meters)
-const SUMMIT_DETECTION_RADIUS_METERS = 100; // default threshold for completed
-const SUMMIT_DETECTION_NEAR_MIN = 100;
-const SUMMIT_DETECTION_NEAR_MAX = 250;
+const SUMMIT_DETECTION_RADIUS_METERS = 150; // default threshold for completed
+const SUMMIT_DETECTION_NEAR_MIN = 150;
+const SUMMIT_DETECTION_NEAR_MAX = 300;
 
 // --- Geodesic helpers ---
 function haversineDistanceMeters(lat1, lon1, lat2, lon2) {
@@ -38,8 +38,8 @@ function haversineDistanceMeters(lat1, lon1, lat2, lon2) {
     const R = 6371000; // Earth radius in meters
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
 
@@ -70,13 +70,16 @@ function distancePointToSegmentMeters(pLat, pLng, aLat, aLng, bLat, bLng) {
     const projy = a.y + t * vy;
     const dx = p.x - projx;
     const dy = p.y - projy;
-    return Math.sqrt(dx*dx + dy*dy);
+    return Math.sqrt(dx * dx + dy * dy);
 }
 
 
 function makeTileLayer(key) {
     if (key === 'carto') return L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '&copy; Carto' });
+    if (key === 'carto_light') return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; Carto' });
     if (key === 'stamen') return L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png', { attribution: '&copy; Stamen' });
+    if (key === 'esri') return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
+    if (key === 'satellite') return L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenTopoMap' });
     return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' });
 }
 
@@ -114,7 +117,13 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
     sportSel.innerHTML = '<option value="all">All</option>' + types.map(t => `<option value="${t}">${t}</option>`).join('');
     // default control values
     sportSel.value = 'all';
-    if (vizSel) vizSel.value = 'heat';
+    // ensure vizSel has an 'Empty' option
+    if (vizSel) {
+        try {
+            if (!Array.from(vizSel.options).some(o => o.value === 'empty')) vizSel.add(new Option('Empty', 'empty'));
+            vizSel.value = 'heat';
+        } catch (e) { }
+    }
     if (densitySlider) densitySlider.value = '1.133';
     if (radiusSlider) radiusSlider.value = '8';
     if (blurSlider) blurSlider.value = '14';
@@ -189,6 +198,8 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
                 console.log(`factor: ${factor}, rad: ${rad}, blur: ${blur}, points: ${heatPoints.length}`);
                 try { window._stravaHeat = L.heatLayer(heatPoints, { radius: rad, blur: blur, maxZoom: 12 }).addTo(window._stravaMap); } catch (e) { }
             }
+        } else if (view === 'empty') {
+            // empty view: show only base map (summits layer handled separately)
         } else {
             visible.forEach(a => {
                 const coords = parseActivityPolyline(a);
@@ -239,6 +250,12 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         window._stravaBase.addTo(window._stravaMap);
     });
 
+    // Add extra tile options programmatically if select exists
+    if (tilesSel) {
+        const want = [{ v: 'esri', t: 'Esri Satellite' }, { v: 'carto_light', t: 'Carto Light' }, { v: 'satellite', t: 'Topo' }];
+        want.forEach(opt => { if (!Array.from(tilesSel.options).some(o => o.value === opt.v)) tilesSel.add(new Option(opt.t, opt.v)); });
+    }
+
     // Controls
     applyBtn?.addEventListener('click', () => render());
     resetBtn?.addEventListener('click', () => {
@@ -261,6 +278,99 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
 
     // Initial render
     render();
+
+    // Create external 100 Cims button near filters (more visible)
+    let summitsActive = false;
+    try {
+        const btnId = 'toggle-summits-btn';
+        if (!document.getElementById(btnId)) {
+            const btn = document.createElement('button');
+            btn.id = btnId;
+            btn.style.marginLeft = '8px';
+            btn.style.padding = '6px 10px';
+            btn.style.fontWeight = '600';
+            btn.textContent = '100 Cims';
+            // place next to vizSel if possible
+            if (vizSel && vizSel.parentNode) vizSel.parentNode.insertBefore(btn, vizSel.nextSibling);
+            else if (tilesSel && tilesSel.parentNode) tilesSel.parentNode.insertBefore(btn, tilesSel.nextSibling);
+            else container.insertBefore(btn, mapEl);
+            btn.addEventListener('click', async () => {
+                summitsActive = !summitsActive;
+                btn.textContent = summitsActive ? '100 Cims ✓' : '100 Cims';
+                if (summitsActive) await showSummitsLayer(); else hideSummitsLayer();
+            });
+        }
+    } catch (e) { }
+
+    // Build summits list under the map
+    function buildSummitsListContainer() {
+        let list = document.getElementById('summits-list');
+        if (list) return list;
+        list = document.createElement('div');
+        list.id = 'summits-list';
+        list.style.marginTop = '8px';
+        list.style.padding = '8px';
+        list.style.background = 'white';
+        list.style.borderRadius = '6px';
+        list.style.boxShadow = '0 1px 4px rgba(0,0,0,0.1)';
+        // header with sorting
+        list.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700">Lista de Cimas</div><div><select id="summit-sort"><option value="name_asc">Nombre A-Z</option><option value="height_desc">Altitud ↓</option><option value="height_asc">Altitud ↑</option><option value="completed_first">Completadas primero</option><option value="notcompleted_first">No completadas primero</option><option value="essential_first">Esenciales primero</option></select></div></div><div id="summit-list-rows" style="max-height:320px;overflow:auto;margin-top:8px"></div>`;
+        // append after map element
+        if (mapEl && mapEl.parentNode) mapEl.parentNode.insertBefore(list, mapEl.nextSibling);
+        else container.appendChild(list);
+        document.getElementById('summit-sort')?.addEventListener('change', () => renderSummitsList());
+        return list;
+    }
+
+    function renderSummitsList() {
+        const list = buildSummitsListContainer();
+        const rowsEl = document.getElementById('summit-list-rows');
+        rowsEl.innerHTML = 'Cargando...';
+        detectCompletedSummits().then(data => {
+            // apply same filters as applySummitFilters
+            const regionVal = document.getElementById('summit-region-filter')?.value || 'all';
+            const statusVal = document.getElementById('summit-status-filter')?.value || 'all';
+            const altMin = Number(document.getElementById('summit-alt-min')?.value) || -Infinity;
+            const altMaxRaw = document.getElementById('summit-alt-max')?.value; const altMax = altMaxRaw ? Number(altMaxRaw) : Infinity;
+            const essentialVal = document.getElementById('summit-essential-filter')?.value || 'all';
+            let filtered = data.filter(s => {
+                if (regionVal !== 'all' && !(s.region || []).includes(regionVal)) return false;
+                if (statusVal !== 'all' && s.status !== statusVal) return false;
+                if (!isNaN(altMin) && s.height != null && s.height < altMin) return false;
+                if (!isNaN(altMax) && s.height != null && s.height > altMax) return false;
+                if (essentialVal === 'only' && !s.essencial) return false;
+                if (essentialVal === 'no' && s.essencial) return false;
+                return true;
+            });
+            // sorting
+            const sortVal = document.getElementById('summit-sort')?.value || 'name_asc';
+            const sorters = {
+                name_asc: (a, b) => a.name.localeCompare(b.name),
+                height_desc: (a, b) => (b.height || 0) - (a.height || 0),
+                height_asc: (a, b) => (a.height || 0) - (b.height || 0),
+                completed_first: (a, b) => (b.status === 'COMPLETED') - (a.status === 'COMPLETED'),
+                notcompleted_first: (a, b) => (a.status === 'COMPLETED') - (b.status === 'COMPLETED'),
+                essential_first: (a, b) => (b.essencial ? 1 : 0) - (a.essencial ? 1 : 0)
+            };
+            filtered.sort(sorters[sortVal]);
+            if (!filtered.length) { rowsEl.innerHTML = '<div>No hay cimas con estos filtros.</div>'; return; }
+            const fragment = document.createDocumentFragment();
+            filtered.forEach(s => {
+                const el = document.createElement('div');
+                el.style.padding = '6px'; el.style.borderBottom = '1px solid #eee'; el.style.cursor = 'pointer';
+                el.innerHTML = `<div style="display:flex;justify-content:space-between"><div><strong>${s.name}</strong><div style="font-size:0.9em;color:#666">${(s.region || []).join(', ')} • ${s.height ? s.height + ' m' : ''}</div></div><div style="text-align:right">${s.status === 'COMPLETED' ? '<span style="color:green">✓</span>' : (s.status === 'NEAR' ? '<span style="color:orange">●</span>' : '<span style="color:#d00">○</span>')}</div></div>`;
+                el.addEventListener('click', () => {
+                    // center map and open popup if marker exists
+                    let found = null;
+                    window._stravaSummits.eachLayer(l => { if (l.summit && l.summit.id === s.id) found = l; });
+                    if (found) { window._stravaMap.setView(found.getLatLng(), 13); found.openPopup(); }
+                });
+                fragment.appendChild(el);
+            });
+            rowsEl.innerHTML = '';
+            rowsEl.appendChild(fragment);
+        });
+    }
 
     // --- 100 Cims functionality ---
     // Use a window-scoped cache to avoid reprocessing unless activities change
@@ -343,7 +453,7 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
                 // compute precise minimal distance to segments
                 const pts = at.coords;
                 for (let i = 0; i < pts.length - 1; i++) {
-                    const a = pts[i]; const b = pts[i+1];
+                    const a = pts[i]; const b = pts[i + 1];
                     const d = distancePointToSegmentMeters(lat, lon, Number(a[0]), Number(a[1]), Number(b[0]), Number(b[1]));
                     if (d < best.dist) {
                         best.dist = d;
@@ -449,7 +559,7 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         const panel = buildSummitPanel(); panel.style.display = 'block';
         let data = await detectCompletedSummits();
         // create unique region list
-        const regions = new Set(); data.forEach(s => (s.region || []).forEach(r => regions.add(r)) );
+        const regions = new Set(); data.forEach(s => (s.region || []).forEach(r => regions.add(r)));
         const regionSel = document.getElementById('summit-region-filter');
         regionSel.innerHTML = '<option value="all">Todas</option>' + Array.from(regions).sort().map(r => `<option value="${r}">${r}</option>`).join('');
 
@@ -464,6 +574,7 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         if (!window._stravaMap.hasLayer(window._stravaSummits)) window._stravaSummits.addTo(window._stravaMap);
 
         updateSummitSummary(data);
+        try { renderSummitsList(); } catch (e) { }
 
         // wire up filter events to only show/hide markers
         const statusSel = document.getElementById('summit-status-filter');
@@ -512,6 +623,8 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         });
 
         updateSummitSummary({ total, completedCount, nearCount, visibleCount, essencialCompleted, essencialTotal });
+        // update the list view as well
+        try { renderSummitsList(); } catch (e) { }
     }
 
     function updateSummitSummary(data) {
@@ -539,27 +652,7 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         }
     }
 
-    // Add a small Leaflet control button to toggle the layer
-    const SummitsControl = L.Control.extend({
-        options: { position: 'topright' },
-        onAdd: function() {
-            const el = L.DomUtil.create('div', 'leaflet-bar');
-            el.style.background = 'white'; el.style.padding = '2px'; el.style.cursor = 'pointer'; el.title = '100 Cims';
-            const btn = document.createElement('a'); btn.innerHTML = '100 Cims'; btn.href = '#'; btn.style.display = 'block'; btn.style.padding = '6px 8px'; btn.style.textDecoration = 'none'; btn.style.color = '#333';
-            el.appendChild(btn);
-            L.DomEvent.disableClickPropagation(el);
-            let active = false;
-            btn.addEventListener('click', async (ev) => {
-                ev.preventDefault();
-                active = !active;
-                btn.innerHTML = active ? '100 Cims ✓' : '100 Cims';
-                if (active) await showSummitsLayer(); else hideSummitsLayer();
-            });
-            return el;
-        }
-    });
-
-    try { window._stravaMap.addControl(new SummitsControl()); } catch (e) { }
+    // (External toggle button created near controls; no Leaflet control here.)
 }
 
 export default { renderMapTab };
