@@ -894,6 +894,14 @@ html[data-theme="dark"] .chart-container {
     background: var(--card-bg);
 }
 
+/* HIDE CERTAIN TOP-MENU TAB BUTTONS
+   These keep the routes available via direct URL but remove the main-nav buttons.
+*/
+.tab-link[data-tab="weather-tab"],
+.tab-link[data-tab="ai-chat-tab"] {
+    display: none !important;
+}
+
 html[data-theme="dark"] button {
     background: #606060;
 }
