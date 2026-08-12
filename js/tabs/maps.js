@@ -144,12 +144,20 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
     // Controls visibility depending on visualization mode
     function updateVizControlsVisibility() {
         const view = vizSel?.value || 'routes';
-        // heat controls visible only for heat view
+        // heat controls visible only for heat view (hide their label wrappers too)
+        const dsLabel = densitySlider ? densitySlider.closest('label') : null;
+        const rsLabel = radiusSlider ? radiusSlider.closest('label') : null;
+        const bsLabel = blurSlider ? blurSlider.closest('label') : null;
+        const cbLabel = colorBySportCheckbox ? colorBySportCheckbox.closest('label') : null;
         if (densitySlider) densitySlider.style.display = (view === 'heat') ? '' : 'none';
         if (radiusSlider) radiusSlider.style.display = (view === 'heat') ? '' : 'none';
         if (blurSlider) blurSlider.style.display = (view === 'heat') ? '' : 'none';
-        // color by sport visible only when showing polylines/routes
+        if (dsLabel) dsLabel.style.display = (view === 'heat') ? '' : 'none';
+        if (rsLabel) rsLabel.style.display = (view === 'heat') ? '' : 'none';
+        if (bsLabel) bsLabel.style.display = (view === 'heat') ? '' : 'none';
+        // color by sport visible only when showing polylines/routes (hide its label wrapper)
         if (colorBySportCheckbox) colorBySportCheckbox.style.display = (view === 'routes') ? '' : 'none';
+        if (cbLabel) cbLabel.style.display = (view === 'routes') ? '' : 'none';
     }
     // initial visibility and on change
     try { updateVizControlsVisibility(); } catch (e) { }
@@ -710,16 +718,16 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         return { regionVal, statusVal, essentialVal, altMin, altMax };
     }
 
-    function applySummitFilters() {
+    async function applySummitFilters() {
         const { regionVal, statusVal, essentialVal, altMin, altMax } = getSummitFilterValues();
 
-        const allMarkers = [];
-        window._stravaSummits.eachLayer(l => allMarkers.push(l));
-        let visibleCount = 0, completedCount = 0, nearCount = 0, total = allMarkers.length, essencialCompleted = 0, essencialTotal = 0;
+        // Rebuild markers from the canonical summits data to avoid desync between table and map
+        const data = await detectCompletedSummits();
+        window._stravaSummits.clearLayers();
+        let visibleCount = 0, completedCount = 0, nearCount = 0, total = data.length, essencialCompleted = 0, essencialTotal = 0;
 
-        allMarkers.forEach(m => {
-            const s = m.summit;
-            if (!s) return;
+        data.forEach(s => {
+            // compute whether summit passes filters
             let show = true;
             if (regionVal !== 'all' && !(s.region || []).includes(regionVal)) show = false;
             if (statusVal !== 'all' && s.status !== statusVal) show = false;
@@ -727,11 +735,23 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
             if (!isNaN(altMax) && s.height != null && s.height > altMax) show = false;
             if (essentialVal === 'only' && !s.essencial) show = false;
             if (essentialVal === 'no' && s.essencial) show = false;
-            if (show) { window._stravaSummits.addLayer(m); visibleCount++; } else { window._stravaSummits.removeLayer(m); }
+
             if (s.status === 'COMPLETED') completedCount++;
             if (s.status === 'NEAR') nearCount++;
             if (s.essencial) { essencialTotal++; if (s.status === 'COMPLETED') essencialCompleted++; }
+
+            if (show) {
+                const m = createSummitMarker(s);
+                window._stravaSummits.addLayer(m);
+                visibleCount++;
+            }
         });
+
+        // ensure layer is on map if there are visible markers
+        try {
+            if (visibleCount > 0 && !window._stravaMap.hasLayer(window._stravaSummits)) window._stravaSummits.addTo(window._stravaMap);
+            if (visibleCount === 0 && window._stravaMap.hasLayer(window._stravaSummits)) window._stravaMap.removeLayer(window._stravaSummits);
+        } catch (e) { }
 
         updateSummitSummary({ total, completedCount, nearCount, visibleCount, essencialCompleted, essencialTotal });
         // update the list view as well
