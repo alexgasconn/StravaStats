@@ -3,7 +3,7 @@
  * Handles loading and managing demo data in localStorage
  */
 
-import { generateDemoData, generateDemoAthlete, generateDemoZones } from './generator.js';
+import { getCachedActivities } from '../services/activity-cache.js';
 
 export const DEMO_MODE_KEY = 'strava_demo_mode';
 export const DEMO_TOKENS_KEY = 'strava_tokens_demo';
@@ -23,14 +23,53 @@ export function setDemoMode(enabled) {
 /**
  * Load demo data into localStorage (mimics Strava API responses)
  */
-export function loadDemoData() {
-    // Generate all demo data
-    const activities = generateDemoData();
-    const athlete = generateDemoAthlete();
-    const zones = generateDemoZones();
+export async function loadDemoData() {
+    // Try to use the user's cached Strava activities (IndexedDB/localStorage)
+    let activities = null;
+    try {
+        const cached = await getCachedActivities({ cacheVersion: null, maxAgeMs: Infinity });
+        if (cached && Array.isArray(cached.activities) && cached.activities.length) {
+            activities = cached.activities;
+        }
+    } catch (err) {
+        // If cache access fails, fallback to generator below
+        console.warn('Could not read cached activities for demo mode:', err);
+    }
+
+    // Fallback to a bundled sample activities file (for reproducible demo across users)
+    if (!activities) {
+        try {
+            const resp = await fetch('/js/demo/sample-activities.json', { cache: 'no-store' });
+            if (resp.ok) {
+                const parsed = await resp.json();
+                if (Array.isArray(parsed) && parsed.length) {
+                    activities = parsed;
+                }
+            }
+        } catch (err) {
+            console.warn('No bundled sample activities found:', err);
+        }
+    }
+
+    // If still no activities, use empty array — generator removed by request
+    if (!activities) activities = [];
+
+    // Prefer existing cached athlete/zones/gears in localStorage if present
+    const storedAthlete = JSON.parse(localStorage.getItem('strava_athlete_data') || 'null');
+    const athlete = storedAthlete || {
+        id: null,
+        username: 'demo_user',
+        firstname: 'Demo',
+        lastname: 'User',
+        profile_medium: '',
+        city: '',
+        country: ''
+    };
+    const storedZones = JSON.parse(localStorage.getItem('strava_training_zones') || 'null');
+    const zones = storedZones || [];
     const gears = [...(athlete?.shoes || []), ...(athlete?.bikes || [])];
 
-    // Store in localStorage (same structure as real API)
+    // Store demo data in localStorage (api.js reads these keys when isDemoMode())
     localStorage.setItem('strava_demo_activities', JSON.stringify(activities));
     localStorage.setItem('strava_athlete_data', JSON.stringify(athlete));
     localStorage.setItem('strava_training_zones', JSON.stringify(zones));

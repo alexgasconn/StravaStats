@@ -101,8 +101,8 @@ async function getTokensFromCode(code) {
 
 export async function loginWithDemo(onAuthenticated) {
     try {
-        showLoading('Loading demo data with 250 sample activities...');
-        loadDemoData();
+        showLoading('Loading demo data with cached activities...');
+        await loadDemoData();
 
         // Fake token for demo mode
         const demoTokens = {
