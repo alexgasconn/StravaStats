@@ -321,7 +321,7 @@ main {
 }
 
 /* Prediction Evolution specific fixes */
-#prediction-history-panel > div[style*="grid-template-columns"] {
+#prediction-history-panel>div[style*="grid-template-columns"] {
     /* override inline align-items:end to avoid large empty vertical gaps */
     align-items: start !important;
     align-content: start !important;
@@ -344,6 +344,56 @@ main {
     height: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box;
+}
+
+/* Mobile-friendly tab navigation: larger touch targets, horizontal scroll, compact visuals */
+@media (max-width: 700px) {
+    .top-bar {
+        align-items: center;
+        padding: 0.35rem 0.5rem;
+    }
+
+    .tab-nav {
+        display: flex;
+        gap: 0.35rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 0.25rem 0.25rem;
+        margin: 0 0.25rem;
+        white-space: nowrap;
+    }
+
+    .tab-nav .tab-link {
+        flex: 0 0 auto;
+        padding: 8px 12px;
+        font-size: 0.95rem;
+        line-height: 1;
+        min-height: 44px; /* meet touch target guidelines */
+        border-radius: 6px;
+        background: transparent;
+        border: none;
+    }
+
+    .tab-nav .tab-link.active {
+        background: rgba(0,0,0,0.06);
+    }
+
+    /* hide scrollbar but keep scrollable */
+    .tab-nav::-webkit-scrollbar { height: 6px; }
+    .tab-nav::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 6px; }
+
+    .top-bar__actions {
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+    }
+
+    /* slightly increase size of small icon buttons for easier tapping */
+    .top-bar__actions .action-btn {
+        padding: 8px;
+        min-width: 40px;
+        min-height: 40px;
+    }
 }
 
 .chart-html-legend-overlay {
