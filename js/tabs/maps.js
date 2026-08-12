@@ -331,39 +331,41 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         filterBar.style.alignItems = 'center';
         filterBar.style.marginBottom = '8px';
         filterBar.innerHTML = `
-            <div style="font-weight:600">Filtros:</div>
-            <label style="font-size:0.9em">Región</label>
+            <div style="font-weight:600">Filtres:</div>
+            <label style="font-size:0.9em">Comarca</label>
             <select id="filter-region-select" style="padding:6px">
-                <option value="all">Todas</option>
+                <option value="all">Totes</option>
             </select>
-            <label style="font-size:0.9em">Estado</label>
+            <label style="font-size:0.9em">Estat</label>
             <select id="filter-status-select" style="padding:6px">
-                <option value="all">Todas</option>
-                <option value="COMPLETED">Completadas</option>
-                <option value="NOT_COMPLETED">No completadas</option>
-                <option value="NEAR">Cerca</option>
+                <option value="all">Tots</option>
+                <option value="COMPLETED">Completades</option>
+                <option value="NOT_COMPLETED">No completades</option>
+                <option value="NEAR">A prop</option>
             </select>
-            <label style="font-size:0.9em">Esencial</label>
+            <label style="font-size:0.9em">Essencial</label>
             <select id="filter-essential-select" style="padding:6px">
-                <option value="all">Todas</option>
-                <option value="only">Sólo esenciales</option>
-                <option value="no">Sólo no esenciales</option>
+                <option value="all">Totes</option>
+                <option value="only">Només essencials</option>
+                <option value="no">Només no essencials</option>
             </select>
-            <button id="filter-all-btn" style="padding:6px 8px">Todas</button>
-            <button id="filter-essential-btn" style="padding:6px 8px">Esenciales</button>
-            <button id="filter-completed-btn" style="padding:6px 8px">Completadas</button>
-            <button id="filter-notcompleted-btn" style="padding:6px 8px">Pendientes</button>
-            <div style="margin-left:8px;display:flex;gap:6px;align-items:center">Altitud</div>
-            <input id="filter-alt-min" type="number" placeholder="min" style="width:72px;padding:6px" />
-            <input id="filter-alt-max" type="number" placeholder="max" style="width:72px;padding:6px" />
-            <button id="filter-alt-apply" style="padding:6px 8px">Aplicar</button>
+            <div id="filter-alt-wrapper" style="position:relative;margin-left:6px">
+                <div style="padding:6px;border:1px solid #eee;border-radius:4px;cursor:default;background:#fafafa">Altitud</div>
+                <div id="filter-alt-popup" style="position:absolute;top:36px;left:0;background:#fff;padding:8px;border:1px solid #ddd;border-radius:6px;display:none;box-shadow:0 2px 6px rgba(0,0,0,0.12);z-index:5000">
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <input id="filter-alt-min" type="number" placeholder="min" style="width:80px;padding:6px" />
+                        <input id="filter-alt-max" type="number" placeholder="max" style="width:80px;padding:6px" />
+                        <button id="filter-alt-apply" style="padding:6px 8px">Aplicar</button>
+                    </div>
+                </div>
+            </div>
         `;
-        // header with sorting and table
+        // header with sorting and table (Catalan)
         list.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:700">Lista de Cimas</div>
+                <div style="font-weight:700">Llista de cims</div>
                 <div>
-                    <select id="summit-sort"><option value="name_asc">Nombre A-Z</option><option value="height_desc">Altitud ↓</option><option value="height_asc">Altitud ↑</option><option value="completed_first">Completadas primero</option><option value="notcompleted_first">No completadas primero</option><option value="essential_first">Esenciales primero</option></select>
+                    <select id="summit-sort"><option value="name_asc">Nom A-Z</option><option value="height_desc">Altitud ↓</option><option value="height_asc">Altitud ↑</option><option value="completed_first">Completades primer</option><option value="notcompleted_first">No completades primer</option><option value="essential_first">Essencials primer</option></select>
                 </div>
             </div>
             <div style="max-height:360px;overflow:auto;border-top:1px solid #eee">
@@ -371,12 +373,12 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
                     <thead style="position:sticky;top:0;background:#fafafa;z-index:1">
                         <tr>
                             <th style="width:40px;padding:6px;border-bottom:1px solid #eee">Foto</th>
-                            <th style="text-align:left;padding:6px;border-bottom:1px solid #eee">Nombre</th>
+                            <th style="text-align:left;padding:6px;border-bottom:1px solid #eee">Nom</th>
                             <th style="text-align:left;padding:6px;border-bottom:1px solid #eee">Comarca</th>
                             <th style="text-align:right;padding:6px;border-bottom:1px solid #eee">Altitud</th>
-                            <th style="text-align:center;padding:6px;border-bottom:1px solid #eee">Esencial</th>
-                            <th style="text-align:center;padding:6px;border-bottom:1px solid #eee">Completado</th>
-                            <th style="text-align:center;padding:6px;border-bottom:1px solid #eee">Enlace</th>
+                            <th style="text-align:center;padding:6px;border-bottom:1px solid #eee">Essencial</th>
+                            <th style="text-align:center;padding:6px;border-bottom:1px solid #eee">Completat</th>
+                            <th style="text-align:center;padding:6px;border-bottom:1px solid #eee">Enllaç</th>
                         </tr>
                     </thead>
                     <tbody id="summit-table-body"></tbody>
@@ -388,45 +390,20 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
             mapEl.parentNode.insertBefore(filterBar, mapEl.nextSibling);
             mapEl.parentNode.insertBefore(list, filterBar.nextSibling);
         } else container.appendChild(list);
-        // wire compact filter bar to panel controls (deferred in case panel not built yet)
-        const wireCompactFilters = () => {
-            const setActive = (btnEl) => {
-                ['filter-all-btn', 'filter-essential-btn', 'filter-completed-btn', 'filter-notcompleted-btn'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (!el) return;
-                    el.style.fontWeight = (el === btnEl) ? '700' : '400';
-                });
-            };
-            document.getElementById('filter-all-btn')?.addEventListener('click', () => {
-                const ess = document.getElementById('filter-essential-select'); if (ess) ess.value = 'all';
-                const st = document.getElementById('filter-status-select'); if (st) st.value = 'all';
-                const amin = document.getElementById('filter-alt-min'); if (amin) amin.value = '';
-                const amax = document.getElementById('filter-alt-max'); if (amax) amax.value = '';
-                const r = document.getElementById('filter-region-select'); if (r) r.value = 'all';
-                setActive(document.getElementById('filter-all-btn'));
-                applySummitFilters(); renderSummitsList();
-            });
-            document.getElementById('filter-essential-btn')?.addEventListener('click', () => {
-                const ess = document.getElementById('filter-essential-select'); if (ess) ess.value = 'only';
-                setActive(document.getElementById('filter-essential-btn'));
-                applySummitFilters(); renderSummitsList();
-            });
-            document.getElementById('filter-completed-btn')?.addEventListener('click', () => {
-                const st = document.getElementById('filter-status-select'); if (st) st.value = 'COMPLETED';
-                setActive(document.getElementById('filter-completed-btn'));
-                applySummitFilters(); renderSummitsList();
-            });
-            document.getElementById('filter-notcompleted-btn')?.addEventListener('click', () => {
-                const st = document.getElementById('filter-status-select'); if (st) st.value = 'NOT_COMPLETED';
-                setActive(document.getElementById('filter-notcompleted-btn'));
-                applySummitFilters(); renderSummitsList();
-            });
-            document.getElementById('filter-alt-apply')?.addEventListener('click', () => {
-                // filtering reads directly from compact inputs, so just trigger update
-                applySummitFilters(); renderSummitsList();
-            });
-        };
-        setTimeout(wireCompactFilters, 50);
+        // wire compact selects and altitude hover popup
+        const compactRegion = document.getElementById('filter-region-select'); if (compactRegion) compactRegion.addEventListener('change', () => { applySummitFilters(); renderSummitsList(); });
+        const compactStatus = document.getElementById('filter-status-select'); if (compactStatus) compactStatus.addEventListener('change', () => { applySummitFilters(); renderSummitsList(); });
+        const compactEssential = document.getElementById('filter-essential-select'); if (compactEssential) compactEssential.addEventListener('change', () => { applySummitFilters(); renderSummitsList(); });
+        // altitude hover popup wiring
+        const altWrapper = document.getElementById('filter-alt-wrapper');
+        const altPopup = document.getElementById('filter-alt-popup');
+        if (altWrapper && altPopup) {
+            altWrapper.addEventListener('mouseenter', () => { altPopup.style.display = 'block'; });
+            altWrapper.addEventListener('mouseleave', () => { altPopup.style.display = 'none'; });
+            document.getElementById('filter-alt-apply')?.addEventListener('click', () => { applySummitFilters(); renderSummitsList(); });
+            document.getElementById('filter-alt-min')?.addEventListener('input', () => { /* live update optional */ });
+            document.getElementById('filter-alt-max')?.addEventListener('input', () => { /* live update optional */ });
+        }
         document.getElementById('summit-sort')?.addEventListener('change', () => renderSummitsList());
         return list;
     }
@@ -458,7 +435,7 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
                 essential_first: (a, b) => (b.essencial ? 1 : 0) - (a.essencial ? 1 : 0)
             };
             filtered.sort(sorters[sortVal]);
-            if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" style="padding:8px;color:#666">No hay cimas con estos filtros.</td></tr>'; return; }
+            if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" style="padding:8px;color:#666">No hi ha cims amb aquests filtres.</td></tr>'; return; }
             filtered.forEach(s => {
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid #f1f1f1';
@@ -468,8 +445,8 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
                 const regionTd = `<td style="padding:6px;color:#333">${(s.region || []).join(', ')}</td>`;
                 const heightTd = `<td style="padding:6px;text-align:right">${s.height ? s.height + ' m' : ''}</td>`;
                 const essentialTd = `<td style="padding:6px;text-align:center">${s.essencial ? 'Sí' : 'No'}</td>`;
-                // Use clearer, professional emojis for status: ✅ completado, ⚠️ cerca, 📍 no completado
-                const statusSym = s.status === 'COMPLETED' ? '<span title="Completado">✅</span>' : (s.status === 'NEAR' ? '<span title="Cerca">⚠️</span>' : '<span title="No completado">📍</span>');
+                // Use clearer, professional emojis for status: ✅ Completat, ⚠️ A prop, ❌ No completat
+                const statusSym = s.status === 'COMPLETED' ? '<span title="Completat">✅</span>' : (s.status === 'NEAR' ? '<span title="A prop">⚠️</span>' : '<span title="No completat">❌</span>');
                 const statusTd = `<td style="padding:6px;text-align:center">${statusSym}</td>`;
                 const linkTd = `<td style="padding:6px;text-align:center">${s.url ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer">🔗</a>` : ''}</td>`;
                 tr.innerHTML = imgTd + nameTd + regionTd + heightTd + essentialTd + statusTd + linkTd;
@@ -606,13 +583,13 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
     }
 
     function createSummitPopupHTML(s) {
-        const statusLabel = s.status === 'COMPLETED' ? '✅ COMPLETADO' : (s.status === 'NEAR' ? '⚠️ CERCA' : '📍 NO COMPLETADO');
-        const distLine = s.distanceMeters != null ? `<div><strong>Distancia al track:</strong> ${s.distanceMeters} m</div>` : '';
-        const actLine = s.matchedActivity ? `<div><strong>Actividad:</strong> ${s.matchedActivity.name || ''}</div><div><strong>Fecha:</strong> ${s.matchedActivity.date || ''}</div>` : '';
+        const statusLabel = s.status === 'COMPLETED' ? '✅ COMPLETAT' : (s.status === 'NEAR' ? '⚠️ A PROP' : '❌ NO COMPLETAT');
+        const distLine = s.distanceMeters != null ? `<div><strong>Distància al track:</strong> ${s.distanceMeters} m</div>` : '';
+        const actLine = s.matchedActivity ? `<div><strong>Activitat:</strong> ${s.matchedActivity.name || ''}</div><div><strong>Data:</strong> ${s.matchedActivity.date || ''}</div>` : '';
         const img = s.image ? `<img src="${s.image}" style="max-width:200px;max-height:120px;display:block;margin-bottom:6px;" onerror="this.style.display='none'" />` : '';
         const essencial = s.essencial ? 'Sí' : 'No';
-        const url = s.url ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer">Ver en FEEC</a>` : '';
-        return `<div style="min-width:220px">${img}<div style="font-weight:bold;font-size:1.05em">${s.name}</div><div>${s.height ? s.height + ' m' : ''}</div><div>${(s.region || []).join(', ')}</div><div style="margin-top:6px"><strong>Estado:</strong> ${statusLabel}</div>${distLine}${actLine}<div><strong>Esencial:</strong> ${essencial}</div><div style="margin-top:6px">${url}</div></div>`;
+        const url = s.url ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer">Veure a FEEC</a>` : '';
+        return `<div style="min-width:220px">${img}<div style="font-weight:bold;font-size:1.05em">${s.name}</div><div>${s.height ? s.height + ' m' : ''}</div><div>${(s.region || []).join(', ')}</div><div style="margin-top:6px"><strong>Estat:</strong> ${statusLabel}</div>${distLine}${actLine}<div><strong>Essencial:</strong> ${essencial}</div><div style="margin-top:6px">${url}</div></div>`;
     }
 
     function createSummitMarker(s) {
@@ -655,8 +632,8 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         // Panel kept minimal: summary and close button. Filters live in the compact bar below the map.
         panel.innerHTML = `
             <div style="font-weight:bold;margin-bottom:6px">100 CIMS</div>
-            <div id="summits-summary">Cargando...</div>
-            <div style="margin-top:8px;text-align:right"><button id="summit-close-btn">Cerrar</button></div>
+            <div id="summits-summary">Carregant...</div>
+            <div style="margin-top:8px;text-align:right"><button id="summit-close-btn">Tancar</button></div>
         `;
         container.appendChild(panel);
         document.getElementById('summit-close-btn').addEventListener('click', () => { panel.style.display = 'none'; });
@@ -668,7 +645,7 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         let data = await detectCompletedSummits();
         // create unique region list and populate compact filter bar region select if present
         const regions = new Set(); data.forEach(s => (s.region || []).forEach(r => regions.add(r)));
-        const regionOptions = '<option value="all">Todas</option>' + Array.from(regions).sort().map(r => `<option value="${r}">${r}</option>`).join('');
+        const regionOptions = '<option value="all">Totes</option>' + Array.from(regions).sort().map(r => `<option value="${r}">${r}</option>`).join('');
         const compactRegion = document.getElementById('filter-region-select');
         if (compactRegion) compactRegion.innerHTML = regionOptions;
 
@@ -750,7 +727,7 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
             const essencialTotal = data.filter(s => s.essencial).length;
             const essencialCompleted = data.filter(s => s.essencial && s.status === 'COMPLETED').length;
             const percent = total ? Math.round((completed / total) * 1000) / 10 : 0;
-            summaryEl.innerHTML = `<div><strong>${completed} / ${total} completados</strong> (${percent}%)</div><div>● ${near} cerca</div><div>○ ${total - completed - near} pendientes</div><div style="margin-top:6px">Esenciales: ${essencialCompleted} / ${essencialTotal}</div>`;
+            summaryEl.innerHTML = `<div><strong>${completed} / ${total} completats</strong> (${percent}%)</div><div>● ${near} a prop</div><div>○ ${total - completed - near} pendents</div><div style="margin-top:6px">Essencials: ${essencialCompleted} / ${essencialTotal}</div>`;
         } else {
             const total = data.total || 0;
             const completed = data.completedCount || 0;
@@ -759,7 +736,7 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
             const essencialTotal = data.essencialTotal || 0;
             const essencialCompleted = data.essencialCompleted || 0;
             const percent = total ? Math.round((completed / total) * 1000) / 10 : 0;
-            summaryEl.innerHTML = `<div><strong>${completed} / ${total} completados</strong> (${percent}%)</div><div>● ${near} cerca</div><div>○ ${total - completed - near} pendientes</div><div style="margin-top:6px">Esenciales: ${essencialCompleted} / ${essencialTotal}</div>`;
+            summaryEl.innerHTML = `<div><strong>${completed} / ${total} completats</strong> (${percent}%)</div><div>● ${near} a prop</div><div>○ ${total - completed - near} pendents</div><div style="margin-top:6px">Essencials: ${essencialCompleted} / ${essencialTotal}</div>`;
         }
     }
 
