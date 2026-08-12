@@ -368,19 +368,26 @@ main {
         padding: 8px 12px;
         font-size: 0.95rem;
         line-height: 1;
-        min-height: 44px; /* meet touch target guidelines */
+        min-height: 44px;
+        /* meet touch target guidelines */
         border-radius: 6px;
         background: transparent;
         border: none;
     }
 
     .tab-nav .tab-link.active {
-        background: rgba(0,0,0,0.06);
+        background: rgba(0, 0, 0, 0.06);
     }
 
     /* hide scrollbar but keep scrollable */
-    .tab-nav::-webkit-scrollbar { height: 6px; }
-    .tab-nav::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 6px; }
+    .tab-nav::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .tab-nav::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.12);
+        border-radius: 6px;
+    }
 
     .top-bar__actions {
         display: flex;
