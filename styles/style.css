@@ -309,6 +309,17 @@ main {
     cursor: pointer;
 }
 
+/* Prevent charts from overflowing their visual card containers */
+.chart-wrapper {
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.chart-wrapper canvas {
+    max-width: 100% !important;
+    box-sizing: border-box;
+}
+
 .chart-html-legend-overlay {
     position: absolute;
     display: flex;
