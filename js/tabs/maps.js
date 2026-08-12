@@ -131,11 +131,21 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
     if (dateFromInput) dateFromInput.value = '';
     if (dateToInput) dateToInput.value = '';
 
+    // Ensure tiles selector has Carto option and default to Carto Voyager
+    if (tilesSel) {
+        try {
+            if (!Array.from(tilesSel.options).some(o => o.value === 'carto')) {
+                tilesSel.add(new Option('Carto', 'carto'), tilesSel.options[0] || null);
+            }
+            tilesSel.value = 'carto';
+        } catch (e) { }
+    }
+
 
     // Initialize leaflet map singleton
     if (!window._stravaMap) {
         window._stravaMap = L.map(mapEl, { preferCanvas: true });
-        const base = makeTileLayer(tilesSel?.value || 'osm');
+        const base = makeTileLayer(tilesSel?.value || 'carto');
         base.addTo(window._stravaMap);
         window._stravaBase = base;
         window._stravaPolylines = L.layerGroup().addTo(window._stravaMap);
@@ -302,7 +312,7 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         }
     } catch (e) { }
 
-    // Build summits list under the map
+    // Build summits list under the map (as a table)
     function buildSummitsListContainer() {
         let list = document.getElementById('summits-list');
         if (list) return list;
@@ -313,8 +323,31 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
         list.style.background = 'white';
         list.style.borderRadius = '6px';
         list.style.boxShadow = '0 1px 4px rgba(0,0,0,0.1)';
-        // header with sorting
-        list.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700">Lista de Cimas</div><div><select id="summit-sort"><option value="name_asc">Nombre A-Z</option><option value="height_desc">Altitud ↓</option><option value="height_asc">Altitud ↑</option><option value="completed_first">Completadas primero</option><option value="notcompleted_first">No completadas primero</option><option value="essential_first">Esenciales primero</option></select></div></div><div id="summit-list-rows" style="max-height:320px;overflow:auto;margin-top:8px"></div>`;
+        // header with sorting and table
+        list.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-weight:700">Lista de Cimas</div>
+                <div>
+                    <select id="summit-sort"><option value="name_asc">Nombre A-Z</option><option value="height_desc">Altitud ↓</option><option value="height_asc">Altitud ↑</option><option value="completed_first">Completadas primero</option><option value="notcompleted_first">No completadas primero</option><option value="essential_first">Esenciales primero</option></select>
+                </div>
+            </div>
+            <div style="max-height:360px;overflow:auto;border-top:1px solid #eee">
+                <table id="summit-table" style="width:100%;border-collapse:collapse;font-size:0.95em">
+                    <thead style="position:sticky;top:0;background:#fafafa;z-index:1">
+                        <tr>
+                            <th style="width:40px;padding:6px;border-bottom:1px solid #eee">Foto</th>
+                            <th style="text-align:left;padding:6px;border-bottom:1px solid #eee">Nombre</th>
+                            <th style="text-align:left;padding:6px;border-bottom:1px solid #eee">Comarca</th>
+                            <th style="text-align:right;padding:6px;border-bottom:1px solid #eee">Altitud</th>
+                            <th style="text-align:center;padding:6px;border-bottom:1px solid #eee">Esencial</th>
+                            <th style="text-align:center;padding:6px;border-bottom:1px solid #eee">Completado</th>
+                            <th style="text-align:center;padding:6px;border-bottom:1px solid #eee">Enlace</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summit-table-body"></tbody>
+                </table>
+            </div>
+        `;
         // append after map element
         if (mapEl && mapEl.parentNode) mapEl.parentNode.insertBefore(list, mapEl.nextSibling);
         else container.appendChild(list);
@@ -324,8 +357,8 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
 
     function renderSummitsList() {
         const list = buildSummitsListContainer();
-        const rowsEl = document.getElementById('summit-list-rows');
-        rowsEl.innerHTML = 'Cargando...';
+        const tbody = document.getElementById('summit-table-body');
+        tbody.innerHTML = '';
         detectCompletedSummits().then(data => {
             // apply same filters as applySummitFilters
             const regionVal = document.getElementById('summit-region-filter')?.value || 'all';
@@ -353,22 +386,27 @@ export function renderMapTab(activities = [], dateFrom = null, dateTo = null) {
                 essential_first: (a, b) => (b.essencial ? 1 : 0) - (a.essencial ? 1 : 0)
             };
             filtered.sort(sorters[sortVal]);
-            if (!filtered.length) { rowsEl.innerHTML = '<div>No hay cimas con estos filtros.</div>'; return; }
-            const fragment = document.createDocumentFragment();
+            if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" style="padding:8px;color:#666">No hay cimas con estos filtros.</td></tr>'; return; }
             filtered.forEach(s => {
-                const el = document.createElement('div');
-                el.style.padding = '6px'; el.style.borderBottom = '1px solid #eee'; el.style.cursor = 'pointer';
-                el.innerHTML = `<div style="display:flex;justify-content:space-between"><div><strong>${s.name}</strong><div style="font-size:0.9em;color:#666">${(s.region || []).join(', ')} • ${s.height ? s.height + ' m' : ''}</div></div><div style="text-align:right">${s.status === 'COMPLETED' ? '<span style="color:green">✓</span>' : (s.status === 'NEAR' ? '<span style="color:orange">●</span>' : '<span style="color:#d00">○</span>')}</div></div>`;
-                el.addEventListener('click', () => {
-                    // center map and open popup if marker exists
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #f1f1f1';
+                tr.style.cursor = 'pointer';
+                const imgTd = `<td style="padding:6px;text-align:center"><img src="${s.image || ''}" style="width:36px;height:24px;object-fit:cover;border-radius:3px" onerror="this.style.display='none'"/></td>`;
+                const nameTd = `<td style="padding:6px"><strong>${s.name}</strong><div style="font-size:0.85em;color:#666">${s.matchedActivity && s.matchedActivity.name ? s.matchedActivity.name : ''}</div></td>`;
+                const regionTd = `<td style="padding:6px;color:#333">${(s.region || []).join(', ')}</td>`;
+                const heightTd = `<td style="padding:6px;text-align:right">${s.height ? s.height + ' m' : ''}</td>`;
+                const essentialTd = `<td style="padding:6px;text-align:center">${s.essencial ? 'Sí' : 'No'}</td>`;
+                const statusSym = s.status === 'COMPLETED' ? '<span style="color:green">✓</span>' : (s.status === 'NEAR' ? '<span style="color:orange">●</span>' : '<span style="color:#d00">○</span>');
+                const statusTd = `<td style="padding:6px;text-align:center">${statusSym}</td>`;
+                const linkTd = `<td style="padding:6px;text-align:center">${s.url ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer">🔗</a>` : ''}</td>`;
+                tr.innerHTML = imgTd + nameTd + regionTd + heightTd + essentialTd + statusTd + linkTd;
+                tr.addEventListener('click', () => {
                     let found = null;
                     window._stravaSummits.eachLayer(l => { if (l.summit && l.summit.id === s.id) found = l; });
                     if (found) { window._stravaMap.setView(found.getLatLng(), 13); found.openPopup(); }
                 });
-                fragment.appendChild(el);
+                tbody.appendChild(tr);
             });
-            rowsEl.innerHTML = '';
-            rowsEl.appendChild(fragment);
         });
     }
 
