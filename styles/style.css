@@ -320,6 +320,32 @@ main {
     box-sizing: border-box;
 }
 
+/* Prediction Evolution specific fixes */
+#prediction-history-panel > div[style*="grid-template-columns"] {
+    /* override inline align-items:end to avoid large empty vertical gaps */
+    align-items: start !important;
+    align-content: start !important;
+}
+
+#prediction-history-panel select[multiple] {
+    /* prevent the distances multi-select from forcing a very tall filters row */
+    max-height: 140px;
+    overflow: auto;
+}
+
+/* Ensure prediction chart canvas fully fits its wrapper */
+#prediction-history-panel .chart-wrapper {
+    height: 360px !important;
+    max-width: 100%;
+}
+
+#prediction-history-panel .chart-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+}
+
 .chart-html-legend-overlay {
     position: absolute;
     display: flex;
