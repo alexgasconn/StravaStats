@@ -54,6 +54,7 @@ export async function logout() {
     localStorage.removeItem('dashboard_filters');
     localStorage.removeItem('dashboard_readiness_hrv');
     // Also clear demo data
+    try { sessionStorage.removeItem('strava_demo_mode'); } catch (_e) { }
     localStorage.removeItem('strava_demo_mode');
     localStorage.removeItem('strava_demo_activities');
     window.location.reload();

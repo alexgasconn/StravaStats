@@ -9,10 +9,34 @@ export const DEMO_MODE_KEY = 'strava_demo_mode';
 export const DEMO_TOKENS_KEY = 'strava_tokens_demo';
 
 export function isDemoMode() {
-    return localStorage.getItem(DEMO_MODE_KEY) === 'true';
+    // Demo mode is session-scoped: only active when the user pressed "Try Demo" in this tab/session.
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            return sessionStorage.getItem(DEMO_MODE_KEY) === 'true';
+        }
+    } catch (_e) {
+        // Fallback to localStorage if sessionStorage is unavailable
+    }
+    try {
+        return localStorage.getItem(DEMO_MODE_KEY) === 'true';
+    } catch (_e) {
+        return false;
+    }
 }
 
 export function setDemoMode(enabled) {
+    // Prefer sessionStorage so demo mode doesn't persist between browser sessions
+    try {
+        if (enabled) {
+            sessionStorage.setItem(DEMO_MODE_KEY, 'true');
+        } else {
+            sessionStorage.removeItem(DEMO_MODE_KEY);
+        }
+        return;
+    } catch (_e) {
+        // Ignore and fall through to localStorage fallback
+    }
+
     if (enabled) {
         localStorage.setItem(DEMO_MODE_KEY, 'true');
     } else {
@@ -87,7 +111,11 @@ export async function loadDemoData() {
         refresh_token: 'demo_refresh_' + Math.random().toString(36),
         expires_at: Math.floor(Date.now() / 1000) + 21600, // 6h from now
     };
-    localStorage.setItem('strava_tokens', JSON.stringify(demoTokens));
+    try {
+        sessionStorage.setItem('strava_tokens', JSON.stringify(demoTokens));
+    } catch (_e) {
+        localStorage.setItem('strava_tokens', JSON.stringify(demoTokens));
+    }
 
     // Enable demo mode
     setDemoMode(true);
@@ -99,8 +127,10 @@ export async function loadDemoData() {
  * Clear demo data and exit demo mode
  */
 export function clearDemoData() {
+    try { sessionStorage.removeItem('strava_demo_mode'); } catch (_e) { }
     localStorage.removeItem('strava_demo_mode');
     localStorage.removeItem('strava_demo_activities');
+    try { sessionStorage.removeItem('strava_tokens'); } catch (_e) { }
     localStorage.removeItem('strava_tokens');
     localStorage.removeItem('strava_athlete_data');
     localStorage.removeItem('strava_training_zones');

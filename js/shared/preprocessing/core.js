@@ -156,6 +156,13 @@ const WEATHER_REQUEST_TIMEOUT_MS = 4000; // abort individual request after 4 s
 const WEATHER_TOTAL_TIMEOUT_MS = 12000;  // stop fetching weather after 12 s total
 
 function isDemoModeFromStorage() {
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            return sessionStorage.getItem('strava_demo_mode') === 'true';
+        }
+    } catch (_e) {
+        // ignore and fallback
+    }
     if (typeof localStorage === 'undefined') return false;
     return localStorage.getItem('strava_demo_mode') === 'true';
 }

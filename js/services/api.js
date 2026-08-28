@@ -46,7 +46,18 @@ function saveToCache(key, data) {
 // AUTH & HELPERS
 // ===================================================================
 function getAuthPayload() {
-    const tokenData = localStorage.getItem('strava_tokens');
+    // Prefer sessionStorage tokens (used for demo mode) so demo tokens do not persist across sessions
+    let tokenData = null;
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            tokenData = sessionStorage.getItem('strava_tokens');
+        }
+    } catch (_e) {
+        // ignore
+    }
+    if (!tokenData) {
+        tokenData = localStorage.getItem('strava_tokens');
+    }
     if (!tokenData) throw new Error('User not authenticated');
     return btoa(tokenData);
 }
