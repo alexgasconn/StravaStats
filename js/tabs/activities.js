@@ -207,6 +207,17 @@ function aggregateByPeriod(activities, groupBy) {
         if (Number.isFinite(activity.distance)) g.sumDistance += activity.distance;
         if (Number.isFinite(activity.moving_time)) g.sumMovingTime += activity.moving_time;
 
+        // Derived metric: elevation per km (m/km)
+        try {
+            const elev = Number(activity.total_elevation_gain || 0);
+            const km = Number(activity.distance || 0) / 1000;
+            if (km > 0 && Number.isFinite(elev)) {
+                addNumericStat(g.numericStats, 'elev_per_km', elev / km);
+            }
+        } catch (_e) {
+            // ignore
+        }
+
         if (activity.start_date_local) {
             const hm = activity.start_date_local.split('T')[1]?.slice(0, 5);
             if (hm) {
@@ -366,6 +377,12 @@ function sortVal(act, col) {
         if (RUN_TYPES.has(type)) return act.moving_time / (act.distance / 1000);
         return -((act.distance / act.moving_time) * 3.6);
     }
+    if (col === 'elev_per_km') {
+        const elev = Number(act.total_elevation_gain || 0);
+        const km = Number(act.distance || 0) / 1000;
+        if (!km || !isFinite(elev)) return -Infinity;
+        return elev / km;
+    }
     const v = act[col];
     return v === undefined || v === null ? -Infinity : v;
 }
@@ -431,6 +448,24 @@ const COLUMNS = [
         csv: v => typeof v === 'number' ? Math.round(v) : ''
     },
     {
+        key: 'elev_per_km', label: 'm/km',
+        // derived metric: total_elevation_gain divided by distance in km
+        defaultHidden: true,
+        format: (v, a) => {
+            const elev = Number(a.total_elevation_gain || 0);
+            const km = (a.distance || 0) / 1000;
+            if (!km || !isFinite(elev)) return '–';
+            const val = elev / km;
+            return `${val.toFixed(1)}<small> m/km</small>`;
+        },
+        csv: (v, a) => {
+            const elev = Number(a.total_elevation_gain || 0);
+            const km = (a.distance || 0) / 1000;
+            if (!km || !isFinite(elev)) return '';
+            return (elev / km).toFixed(2);
+        }
+    },
+    {
         key: 'average_cadence', label: 'Cadence',
         format: (v, a) => fmtCadence(v, a),
         csv: v => typeof v === 'number' ? Math.round(v) : ''
@@ -491,7 +526,7 @@ export function renderActivitiesTab(allActivities) {
             sortCol: 'start_date_local',
             sortDir: 'desc',
             visibleActivities: [],
-            selectedCols: COLUMNS.map(c => c.key),
+            selectedCols: COLUMNS.filter(c => !c.defaultHidden).map(c => c.key),
             groupBy: 'none',
             metricMode: 'auto',
             textMode: 'frequent',
@@ -751,7 +786,7 @@ export function renderActivitiesTab(allActivities) {
         }
 
         state.filters.type = types.slice();
-        state.selectedCols = COLUMNS.map(c => c.key);
+        state.selectedCols = COLUMNS.filter(c => !c.defaultHidden).map(c => c.key);
     }
 
     // ── Filter logic ──────────────────────────────────────────────────────────

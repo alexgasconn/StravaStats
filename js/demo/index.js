@@ -63,7 +63,7 @@ export async function loadDemoData() {
     // Fallback to a bundled sample activities file (for reproducible demo across users)
     if (!activities) {
         try {
-            const resp = await fetch('/js/demo/sample-activities.json', { cache: 'no-store' });
+            const resp = await fetch('/js/demo/sample-activities1.json', { cache: 'no-store' });
             if (resp.ok) {
                 const parsed = await resp.json();
                 if (Array.isArray(parsed) && parsed.length) {
