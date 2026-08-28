@@ -878,7 +878,7 @@ function renderActivitiesTable(rides) {
                     <th data-sort="num" style="padding: 12px; text-align: left; border-bottom: 2px solid rgba(255,255,255,0.2);">Elev (m)</th>
                     <th data-sort="num" style="padding: 12px; text-align: left; border-bottom: 2px solid rgba(255,255,255,0.2);">Elev/km</th>
                     <th data-sort="num" style="padding: 12px; text-align: left; border-bottom: 2px solid rgba(255,255,255,0.2);">km/h</th>
-                    <th data-sort="num" style="padding: 12px; text-align: left; border-bottom: 2px solid rgba(255,255,255,0.2);">Difficulty</th>
+                    <th data-sort="num" style="padding: 12px; text-align: left; border-bottom: 2px solid rgba(255,255,255,0.2);">Difficulty <span title="Fórmula: Difficulty = km + 2.85 × (elevación_m / 100). Explicación: suma la distancia en kilómetros más un peso por desnivel (2.85 puntos por cada 100 m de subida)." style="cursor:help; font-weight:700; margin-left:6px;">ⓘ</span></th>
                     <th data-sort="num" style="padding: 12px; text-align: left; border-bottom: 2px solid rgba(255,255,255,0.2);">Power</th>
                     <th data-sort="num" style="padding: 12px; text-align: left; border-bottom: 2px solid rgba(255,255,255,0.2);">Ratio</th>
                     <th data-sort="num" style="padding: 12px; text-align: left; border-bottom: 2px solid rgba(255,255,255,0.2);">Elapsed</th>
