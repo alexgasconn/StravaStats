@@ -1,0 +1,50 @@
+(async () => {
+  const DB_NAME = 'strava-dashboard-cache';
+  const STORE = 'entries';
+  const KEY = 'strava_activities';
+
+  async function readFromIDB() {
+    return new Promise((resolve, reject) => {
+      try {
+        const req = indexedDB.open(DB_NAME);
+        req.onsuccess = () => {
+          const db = req.result;
+          const tx = db.transaction(STORE, 'readonly');
+          const store = tx.objectStore(STORE);
+          const getReq = store.get(KEY);
+          getReq.onsuccess = () => resolve(getReq.result?.activities || null);
+          getReq.onerror = () => reject(getReq.error);
+        };
+        req.onerror = () => reject(req.error);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  let activities = null;
+  try { activities = await readFromIDB(); } catch (e) { console.warn('IndexedDB read failed:', e); }
+  if (!activities) {
+    try {
+      const raw = localStorage.getItem('strava_activities');
+      if (raw) activities = JSON.parse(raw);
+    } catch (e) { console.warn('localStorage read failed:', e); }
+  }
+
+  if (!activities) {
+    alert('No se han encontrado actividades en IndexedDB ni en localStorage.');
+    return;
+  }
+
+  const json = JSON.stringify(activities, null, 2);
+  try {
+    await navigator.clipboard.writeText(json);
+    console.log(`Copiadas ${Array.isArray(activities) ? activities.length : '??'} actividades al portapapeles.`);
+    alert('Actividades copiadas al portapapeles. Pégalas aquí para que actualice sample-activities.json.');
+  } catch (e) {
+    // Fallback: open in new tab if clipboard denied
+    const w = window.open();
+    w.document.body.innerText = json;
+    alert('No fue posible usar el portapapeles; se ha abierto una ventana con el JSON para copiar manualmente.');
+  }
+})();
