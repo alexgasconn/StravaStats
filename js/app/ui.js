@@ -8,6 +8,12 @@ const loadingProgressBar = document.getElementById('loading-progress-bar');
 const athleteName = document.getElementById('athlete-name');
 const loginSection = document.getElementById('login-section');
 const appSection = document.getElementById('app-section');
+// Modal elements (may not exist in older builds)
+const stravaErrorModal = document.getElementById('strava-error-modal');
+const stravaErrorText = document.getElementById('strava-error-text');
+const stravaModalDemoBtn = document.getElementById('strava-modal-demo');
+const stravaModalKoFiBtn = document.getElementById('strava-modal-ko-fi');
+const stravaModalBackBtn = document.getElementById('strava-modal-back');
 
 let _lastProgress = 0;
 
@@ -52,6 +58,55 @@ export function hideLoading() {
 export function handleError(message, error) {
     console.error(message, error);
     hideLoading();
+    // Detect Strava forbidden API error and show a helpful Spanish popup
+    const errMsg = (error && (error.message || error.toString())) || '';
+    if (errMsg.includes('Strava API: Forbidden') || /forbidden|403/i.test(errMsg)) {
+        const demoBtn = document.getElementById('demo-button');
+        const koFiUrl = 'https://ko-fi.com/alexgn/goal?g=0';
+        // If modal exists, use it
+        if (stravaErrorModal && stravaErrorText && stravaModalDemoBtn && stravaModalKoFiBtn && stravaModalBackBtn) {
+            stravaErrorText.textContent = 'Strava ha cambiado su API y ahora requiere Strava Premium. La app no funcionará con cuentas gratuitas.';
+            stravaErrorModal.style.display = 'flex';
+            stravaErrorModal.setAttribute('aria-hidden', 'false');
+
+            // attach handlers (use once semantics)
+            const closeModal = () => {
+                stravaErrorModal.style.display = 'none';
+                stravaErrorModal.setAttribute('aria-hidden', 'true');
+            };
+
+            const onDemo = () => { try { if (demoBtn) demoBtn.click(); } catch (e) { } closeModal(); };
+            const onKoFi = () => { try { window.open(koFiUrl, '_blank'); } catch (e) { } };
+            const onBack = () => { closeModal(); };
+
+            // Remove previous listeners to avoid duplicates
+            stravaModalDemoBtn.replaceWith(stravaModalDemoBtn.cloneNode(true));
+            stravaModalKoFiBtn.replaceWith(stravaModalKoFiBtn.cloneNode(true));
+            stravaModalBackBtn.replaceWith(stravaModalBackBtn.cloneNode(true));
+
+            // re-query after replace
+            const demoBtnNew = document.getElementById('strava-modal-demo');
+            const koFiBtnNew = document.getElementById('strava-modal-ko-fi');
+            const backBtnNew = document.getElementById('strava-modal-back');
+
+            demoBtnNew.addEventListener('click', onDemo);
+            koFiBtnNew.addEventListener('click', onKoFi);
+            backBtnNew.addEventListener('click', onBack);
+        } else {
+            // Fallback to confirm dialogs
+            const wantDemo = confirm('Strava ha cambiado su API y ahora requiere Strava Premium. La app no funcionará con cuentas gratuitas.\n\nPulsa "Aceptar" para ver la demo con mis datos antiguos, o "Cancelar" para ver opciones de ayuda.');
+            if (wantDemo) {
+                if (demoBtn) demoBtn.click();
+            } else {
+                const wantHelp = confirm('Si quieres apoyar la reactivación de la app puedes ayudar pagando Strava Premium mediante una donación (Ko-fi). ¿Abrir enlace de ayuda?');
+                if (wantHelp) {
+                    try { window.open(koFiUrl, '_blank'); } catch (e) { /* ignore */ }
+                }
+            }
+        }
+        return;
+    }
+
     alert(`Error: ${message}. Check console for details.`);
 }
 

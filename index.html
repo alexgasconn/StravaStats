@@ -67,6 +67,67 @@
     <link rel="stylesheet" href="./styles/weather.css">
     <link rel="stylesheet" href="./styles/map.css">
 
+    <style>
+        /* Simple modal for Strava error */
+        #strava-error-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 1200;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #strava-error-modal .modal-card {
+            background: #fff;
+            color: #111;
+            width: 92%;
+            max-width: 520px;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+        }
+
+        #strava-error-modal h3 {
+            margin: 0 0 8px 0;
+            color: #fc5200;
+        }
+
+        #strava-error-modal p {
+            margin: 0 0 16px 0;
+            line-height: 1.4;
+        }
+
+        #strava-error-modal .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        #strava-error-modal .btn {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+        }
+
+        #strava-error-modal .btn--primary {
+            background: #fc5200;
+            color: #fff;
+        }
+
+        #strava-error-modal .btn--secondary {
+            background: #eee;
+            color: #222;
+        }
+
+        #strava-error-modal .btn--link {
+            background: transparent;
+            color: #0066cc;
+        }
+    </style>
+
 
 
     <!-- Analytics -->
@@ -113,6 +174,19 @@
             <div class="privacy-policy" style="margin-top:1em; font-size:0.85em; color:#888; line-height:1.5;">
                 <strong>Privacy Notice:</strong> Your Strava data is processed in your browser only.
                 Nothing is stored or sent to any server.
+            </div>
+        </div>
+
+        <!-- Strava error modal -->
+        <div id="strava-error-modal" aria-hidden="true">
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="strava-error-title">
+                <h3 id="strava-error-title">Problema con Strava</h3>
+                <p id="strava-error-text">La app no ha podido conectarse a Strava.</p>
+                <div class="modal-actions">
+                    <button id="strava-modal-back" class="btn btn--secondary">Volver</button>
+                    <button id="strava-modal-ko-fi" class="btn btn--link">Ayudar / Donar</button>
+                    <button id="strava-modal-demo" class="btn btn--primary">Ver demo</button>
+                </div>
             </div>
         </div>
 
