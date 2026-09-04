@@ -180,12 +180,16 @@
         <!-- Strava error modal -->
         <div id="strava-error-modal" aria-hidden="true">
             <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="strava-error-title">
-                <h3 id="strava-error-title">Problema con Strava</h3>
-                <p id="strava-error-text">La app no ha podido conectarse a Strava.</p>
+                <h3 id="strava-error-title">Strava connection issue</h3>
+                <p id="strava-error-text">The app couldn't connect to the Strava API.</p>
+                <p style="margin-top:8px; font-size:0.9rem; color:#444;">Important: Strava changed permissions and now
+                    requires a Strava Premium plan for the server-side API access used by this app. As the app author I
+                    need to pay for the premium plan to restore the live connection — users do not need to upgrade their
+                    accounts.</p>
                 <div class="modal-actions">
-                    <button id="strava-modal-back" class="btn btn--secondary">Volver</button>
-                    <button id="strava-modal-ko-fi" class="btn btn--link">Ayudar / Donar</button>
-                    <button id="strava-modal-demo" class="btn btn--primary">Ver demo</button>
+                    <button id="strava-modal-back" class="btn btn--secondary">Back</button>
+                    <button id="strava-modal-ko-fi" class="btn btn--link">Donate / Help</button>
+                    <button id="strava-modal-demo" class="btn btn--primary">View demo</button>
                 </div>
             </div>
         </div>

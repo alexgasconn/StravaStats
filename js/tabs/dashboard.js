@@ -1,6 +1,6 @@
 import * as utils from './utils.js';
 
-let selectedRangeDays = 'last30'; // rango inicial
+let selectedRangeDays = 'alltime'; // default to All Time
 let customDateFromIso = null;
 let customDateToIso = null;
 const dashboardMemo = new Map();

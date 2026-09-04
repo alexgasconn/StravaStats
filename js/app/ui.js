@@ -65,7 +65,7 @@ export function handleError(message, error) {
         const koFiUrl = 'https://ko-fi.com/alexgn/goal?g=0';
         // If modal exists, use it
         if (stravaErrorModal && stravaErrorText && stravaModalDemoBtn && stravaModalKoFiBtn && stravaModalBackBtn) {
-            stravaErrorText.textContent = 'Strava ha cambiado su API y ahora requiere Strava Premium. La app no funcionará con cuentas gratuitas.';
+            stravaErrorText.textContent = 'Strava changed API permissions and the server-side access used by this app now requires a Strava Premium plan.';
             stravaErrorModal.style.display = 'flex';
             stravaErrorModal.setAttribute('aria-hidden', 'false');
 
@@ -93,12 +93,12 @@ export function handleError(message, error) {
             koFiBtnNew.addEventListener('click', onKoFi);
             backBtnNew.addEventListener('click', onBack);
         } else {
-            // Fallback to confirm dialogs
-            const wantDemo = confirm('Strava ha cambiado su API y ahora requiere Strava Premium. La app no funcionará con cuentas gratuitas.\n\nPulsa "Aceptar" para ver la demo con mis datos antiguos, o "Cancelar" para ver opciones de ayuda.');
+            // Fallback to confirm dialogs in English
+            const wantDemo = confirm('Strava changed its API permissions and now requires a Strava Premium plan for the server-side access used by this app.\n\nPress OK to view the demo with archived data, or Cancel to see help options.');
             if (wantDemo) {
                 if (demoBtn) demoBtn.click();
             } else {
-                const wantHelp = confirm('Si quieres apoyar la reactivación de la app puedes ayudar pagando Strava Premium mediante una donación (Ko-fi). ¿Abrir enlace de ayuda?');
+                const wantHelp = confirm('If you want to support restoring the live connection you can help via a donation (Ko-fi). Open the donation page?');
                 if (wantHelp) {
                     try { window.open(koFiUrl, '_blank'); } catch (e) { /* ignore */ }
                 }
